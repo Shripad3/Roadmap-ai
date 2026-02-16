@@ -141,7 +141,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack }) {
               Generating AI Breakdown...
             </span>
           ) : (
-            '🤖 Generate AI Breakdown'
+            'Generate AI Breakdown'
           )}
         </button>
       </div>

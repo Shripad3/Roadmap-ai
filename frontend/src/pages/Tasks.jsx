@@ -9,6 +9,25 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const EXAMPLE_TASKS = [
+    {
+      title: "Learn React fundamentals",
+      description: "Cover components, props/state, hooks, and routing. Build a small todo app."
+    },
+    {
+      title: "Build a portfolio website",
+      description: "Create 3 sections (About, Projects, Contact) and deploy on Vercel/Netlify."
+    },
+    {
+      title: "Prepare for interviews (DSA + system design)",
+      description: "Solve 2 problems/day, revise patterns weekly, and do 1 mock interview per week."
+    },
+    {
+      title: "Ship a full-stack mini app",
+      description: "CRUD app with auth + Postgres. Add one AI feature and write a README."
+    }
+  ];
+
 
   useEffect(() => {
     loadTasks();
@@ -61,12 +80,30 @@ export default function Tasks() {
     loadTasks();
   }
 
-  if (isLoading) {
+  if (tasks.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-          <p className="text-gray-600">Loading tasks...</p>
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900">Try an example task</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Click one to create it instantly (you can edit it later).
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {EXAMPLE_TASKS.map((t) => (
+            <button
+              key={t.title}
+              onClick={async () => {
+                await handleTaskCreated({ title: t.title, description: t.description });
+              }}
+              className="text-left p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition"
+            >
+              <div className="font-medium text-gray-900">{t.title}</div>
+              <div className="text-sm text-gray-600 mt-1 line-clamp-2">
+                {t.description}
+              </div>
+              <div className="text-xs text-primary-600 mt-3">Create this task →</div>
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -94,8 +131,6 @@ export default function Tasks() {
         />
       ) : (
         <div className="space-y-8">
-          <TaskForm onTaskCreated={handleTaskCreated} />
-
           <div>
             <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
             <TaskList

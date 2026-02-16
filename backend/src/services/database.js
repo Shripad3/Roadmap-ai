@@ -4,7 +4,8 @@
  * Manages PostgreSQL connection pool and provides query interface.
  * Uses connection pooling for better performance and resource management.
  */
-
+import dotenv from 'dotenv';
+dotenv.config();
 import pg from 'pg';
 const { Pool } = pg;
 

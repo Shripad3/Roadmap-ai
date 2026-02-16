@@ -26,27 +26,27 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <Navbar user={user} onSignOut={signOut} />
-        </header>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <Navbar user={user} onSignOut={signOut} />
+      </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
-          <Routes>
-            <Route path="/" element={<Tasks />} />
-            <Route path="/ai-breakdown" element={<AIBreakdown />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <Routes>
+          <Route path="/" element={<Tasks />} />
+          <Route path="/ai-breakdown" element={<AIBreakdown />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
-        <footer className="bg-white border-t border-gray-200 mt-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-gray-600 text-sm">
-            Powered by Gemini AI • Built with React & Express
-          </div>
-        </footer>
-      </div>
-    </BrowserRouter>
+      <footer className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-gray-600 text-sm">
+          Powered by Gemini AI • Built with React & Express
+        </div>
+      </footer>
+    </div>
+  </BrowserRouter>
   );
 }
 
