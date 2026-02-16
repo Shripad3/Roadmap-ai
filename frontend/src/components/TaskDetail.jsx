@@ -9,15 +9,71 @@ import { useState, useEffect } from 'react';
 import SubtaskItem from './SubtaskItem';
 import * as api from '../services/api';
 
-export default function TaskDetail({ task, onTaskUpdated, onBack }) {
+export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted }) {
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
+  // --- Edit Modal state ---
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Update subtasks when task prop changes
   useEffect(() => {
     setSubtasks(task.subtasks || []);
   }, [task]);
+
+  function openEditModal(task) {
+      setEditingTaskId(task.id);
+      setEditTitle(task.title || "");
+      setEditDescription(task.description || "");
+      setIsEditOpen(true);
+    }
+  
+    function closeEditModal() {
+      setIsEditOpen(false);
+      setEditingTaskId(null);
+      setEditTitle("");
+      setEditDescription("");
+      setSavingEdit(false);
+    }
+  
+    // Close modal on Escape
+    useEffect(() => {
+      if (!isEditOpen) return;
+      const onKeyDown = (e) => {
+        if (e.key === "Escape") closeEditModal();
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isEditOpen]);
+  
+    async function saveEdit() {
+      const title = editTitle.trim();
+      const description = editDescription.trim();
+      if (!editingTaskId) return;
+  
+      if (!title) {
+        alert("Title cannot be empty.");
+        return;
+      }
+  
+      try {
+        setSavingEdit(true);
+        await api.updateTask(editingTaskId, {
+          title,
+          description: description || null,
+        });
+        closeEditModal();
+        onTaskUpdated(); // refresh list
+      } catch (error) {
+        console.error("Failed to update task:", error);
+        alert("Failed to update task. Please try again.");
+        setSavingEdit(false);
+      }
+    }
 
   async function handleGenerateBreakdown() {
     if (!confirm('This will generate AI subtasks. Any existing subtasks will remain. Continue?')) {
@@ -85,15 +141,40 @@ export default function TaskDetail({ task, onTaskUpdated, onBack }) {
     <div className="space-y-6">
       {/* Header */}
       <div className="card">
-        <button
-          onClick={onBack}
-          className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to tasks
-        </button>
+        <div className="flex justify-between">
+          <button
+            onClick={onBack}
+            className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to tasks
+          </button>
+          {/* Edit */}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditModal(task);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                openEditModal(task);
+              }
+            }}
+            className="text-sm text-primary-600 hover:text-primary-700 cursor-pointer select-none"
+            title="Edit task"
+          >
+            Edit
+          </span>
+
+
+        </div>
+
 
         <div className="mb-4">
           <h1 className="text-3xl font-bold mb-2">{task.title}</h1>
@@ -114,8 +195,8 @@ export default function TaskDetail({ task, onTaskUpdated, onBack }) {
                 onClick={() => handleTaskStatusChange(status)}
                 className={`
                   px-4 py-2 rounded-lg text-sm font-medium border transition-colors
-                  ${task.status === status 
-                    ? statusColors[status] 
+                  ${task.status === status
+                    ? statusColors[status]
                     : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                   }
                 `}
@@ -186,6 +267,78 @@ export default function TaskDetail({ task, onTaskUpdated, onBack }) {
           </div>
         )}
       </div>
+      {/* Edit Modal */}
+      {isEditOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <button
+            className="absolute inset-0 bg-black/40"
+            onClick={closeEditModal}
+            aria-label="Close modal"
+          />
+          <div className="relative bg-white w-full max-w-lg mx-4 rounded-xl shadow-lg border border-gray-200">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Task</h3>
+                <p className="text-sm text-gray-600">Update the title and description.</p>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="p-2 rounded-md hover:bg-gray-50 text-gray-600"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title
+                </label>
+                <input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  disabled={savingEdit}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Task title"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  disabled={savingEdit}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Add more details..."
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={closeEditModal}
+                disabled={savingEdit}
+                className="px-4 py-2 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60"
+              >
+                {savingEdit ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
