@@ -1,18 +1,16 @@
 /**
- * API Service
- * 
- * Centralized module for all API calls to the backend.
- * This keeps API logic separate from components and makes it reusable.
+ * API service
+ *
+ * Tasks/subtasks are stored in Supabase (RLS protected).
+ * AI text generation still goes through backend API.
  */
+
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-/**
- * Generic fetch wrapper with error handling
- */
 async function fetchAPI(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -20,135 +18,194 @@ async function fetchAPI(endpoint, options = {}) {
     },
     ...options,
   };
-  
-  try {
-    const response = await fetch(url, config);
-    
-    // Handle non-JSON responses (like 204 No Content)
-    if (response.status === 204) {
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || `HTTP error ${response.status}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error(`API Error (${endpoint}):`, error);
+
+  const response = await fetch(url, config);
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP error ${response.status}`);
+  }
+  return data;
+}
+
+async function requireUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
     throw error;
   }
+  if (!user) {
+    throw new Error('You must be signed in.');
+  }
+  return user;
 }
 
-// ============================================================================
-// TASK ENDPOINTS
-// ============================================================================
-
-/**
- * Get all tasks
- * @returns {Promise<Array>} Array of tasks
- */
 export async function getTasks() {
-  return fetchAPI('/tasks');
+  await requireUser();
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
 }
 
-/**
- * Get a single task with subtasks
- * @param {string} taskId - UUID of the task
- * @returns {Promise<Object>} Task object with subtasks
- */
 export async function getTask(taskId) {
-  return fetchAPI(`/tasks/${taskId}`);
+  await requireUser();
+
+  const { data: task, error: taskError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .single();
+
+  if (taskError) throw taskError;
+
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('order_index', { ascending: true });
+
+  if (subtasksError) throw subtasksError;
+
+  return { ...task, subtasks: subtasks || [] };
 }
 
-/**
- * Create a new task
- * @param {Object} taskData - { title, description }
- * @returns {Promise<Object>} Created task
- */
 export async function createTask(taskData) {
-  return fetchAPI('/tasks', {
-    method: 'POST',
-    body: JSON.stringify(taskData),
-  });
+  const user = await requireUser();
+  const { title, description } = taskData;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      user_id: user.id,
+      title: title?.trim(),
+      description: description?.trim() || null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
-/**
- * Update a task
- * @param {string} taskId - UUID of the task
- * @param {Object} updates - Fields to update
- * @returns {Promise<Object>} Updated task
- */
 export async function updateTask(taskId, updates) {
-  return fetchAPI(`/tasks/${taskId}`, {
-    method: 'PUT',
-    body: JSON.stringify(updates),
-  });
+  await requireUser();
+  const payload = { ...updates };
+  if (payload.title !== undefined) payload.title = payload.title?.trim();
+  if (payload.description !== undefined) payload.description = payload.description?.trim() || null;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(payload)
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
-/**
- * Delete a task
- * @param {string} taskId - UUID of the task
- * @returns {Promise<null>}
- */
 export async function deleteTask(taskId) {
-  return fetchAPI(`/tasks/${taskId}`, {
-    method: 'DELETE',
-  });
+  await requireUser();
+  const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+  if (error) throw error;
+  return null;
 }
 
-/**
- * Generate AI breakdown for a task
- * @param {string} taskId - UUID of the task
- * @returns {Promise<Array>} Array of generated subtasks
- */
 export async function generateBreakdown(taskId) {
-  return fetchAPI(`/tasks/${taskId}/breakdown`, {
+  const task = await getTask(taskId);
+  const aiSubtasks = await fetchAPI('/ai/breakdown', {
     method: 'POST',
+    body: JSON.stringify({
+      title: task.title,
+      description: task.description || '',
+    }),
   });
+
+  if (!Array.isArray(aiSubtasks) || aiSubtasks.length === 0) {
+    return [];
+  }
+
+  const { data: maxOrderRows, error: maxOrderError } = await supabase
+    .from('subtasks')
+    .select('order_index')
+    .eq('task_id', taskId)
+    .order('order_index', { ascending: false })
+    .limit(1);
+
+  if (maxOrderError) throw maxOrderError;
+
+  const startOrder = (maxOrderRows?.[0]?.order_index ?? -1) + 1;
+
+  const rowsToInsert = aiSubtasks.map((subtask, index) => ({
+    task_id: taskId,
+    title: subtask.title,
+    description: subtask.description || null,
+    order_index: startOrder + index,
+  }));
+
+  const { data, error } = await supabase
+    .from('subtasks')
+    .insert(rowsToInsert)
+    .select('*')
+    .order('order_index', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
 }
 
-// ============================================================================
-// SUBTASK ENDPOINTS
-// ============================================================================
-
-/**
- * Update a subtask
- * @param {string} subtaskId - UUID of the subtask
- * @param {Object} updates - Fields to update
- * @returns {Promise<Object>} Updated subtask
- */
 export async function updateSubtask(subtaskId, updates) {
-  return fetchAPI(`/subtasks/${subtaskId}`, {
-    method: 'PUT',
-    body: JSON.stringify(updates),
-  });
+  await requireUser();
+  const payload = { ...updates };
+  if (payload.title !== undefined) payload.title = payload.title?.trim();
+  if (payload.description !== undefined) payload.description = payload.description?.trim() || null;
+
+  const { data, error } = await supabase
+    .from('subtasks')
+    .update(payload)
+    .eq('id', subtaskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
-/**
- * Delete a subtask
- * @param {string} subtaskId - UUID of the subtask
- * @returns {Promise<null>}
- */
 export async function deleteSubtask(subtaskId) {
-  return fetchAPI(`/subtasks/${subtaskId}`, {
-    method: 'DELETE',
-  });
+  await requireUser();
+  const { error } = await supabase.from('subtasks').delete().eq('id', subtaskId);
+  if (error) throw error;
+  return null;
 }
 
-/**
- * Reorder subtasks
- * @param {string} taskId - UUID of the task
- * @param {Array<string>} subtaskIds - Ordered array of subtask IDs
- * @returns {Promise<Array>} Updated subtasks
- */
 export async function reorderSubtasks(taskId, subtaskIds) {
-  return fetchAPI(`/tasks/${taskId}/reorder`, {
-    method: 'PUT',
-    body: JSON.stringify({ subtaskIds }),
-  });
+  await requireUser();
+
+  const updated = [];
+  for (const [index, subtaskId] of subtaskIds.entries()) {
+    const { data, error } = await supabase
+      .from('subtasks')
+      .update({ order_index: index })
+      .eq('id', subtaskId)
+      .eq('task_id', taskId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (data) updated.push(data);
+  }
+
+  return updated;
 }
 
 export default {
