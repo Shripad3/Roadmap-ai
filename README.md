@@ -1,189 +1,154 @@
-# AI Task Breakdown App - Complete Setup
+# AI Task Breakdown App
 
-A production-ready web application that uses Google Gemini AI (FREE) to break down complex tasks into manageable subtasks.
+Task manager with AI-generated subtasks.
 
-## ✅ Prerequisites
+- Auth and data are handled by Supabase (PostgreSQL + Row Level Security).
+- The backend is AI-only and exposes one endpoint to generate subtasks with Gemini.
 
-- Node.js 18+ (check: `node --version`)
-- Docker Desktop (for PostgreSQL)
-- Google Gemini API key (free at https://aistudio.google.com/app/apikey)
+## Current Architecture
 
-## 🚀 Complete Setup (5 minutes)
+- Frontend: React + Vite (`frontend/`)
+- Data/Auth: Supabase (`tasks` + `subtasks` tables, RLS enabled)
+- Backend: Express (`backend/`) for AI generation only
+- AI Model: Google Gemini (`gemini-3-flash-preview`)
 
-### Step 1: Get Your FREE API Key
+Data flow:
+1. User signs in via Supabase Auth.
+2. Task CRUD happens directly from frontend to Supabase.
+3. "Generate AI Breakdown" sends task text to backend `/api/ai/breakdown`.
+4. Frontend inserts returned subtasks into Supabase.
 
-1. Go to https://aistudio.google.com/app/apikey
-2. Sign in with Google
-3. Click "Create API Key"
-4. Copy the key (starts with `AIza...`)
+## Prerequisites
 
-### Step 2: Extract and Configure
+- Node.js 18+
+- A Supabase project
+- Gemini API key from https://aistudio.google.com/app/apikey
 
-```bash
-# Extract the project
-tar -xzf task-breakdown-app-final.tar.gz
-cd task-breakdown-app-final
+## 1. Supabase Setup
 
-# Edit the backend .env file
-nano backend/.env
+Run your SQL schema/policies in Supabase SQL Editor (you already did this):
 
-# Replace YOUR_GEMINI_API_KEY_HERE with your actual key
-# Save: Ctrl+X, then Y, then Enter
+- `tasks` table with `user_id references auth.users(id)`
+- `subtasks` table with `task_id references tasks(id)`
+- RLS enabled on both tables
+- Per-user policies for select/insert/update/delete
+
+If you are setting this up from scratch, use `database/schema.sql` as your base and apply your Supabase-specific RLS SQL.
+
+## 2. Environment Variables
+
+Create `frontend/.env`:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:3001/api
 ```
 
-### Step 3: Install Dependencies
+Create `backend/.env`:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key
+PORT=3001
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+
+# Currently still required by backend startup check
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/taskapp
+```
+
+Note: backend is AI-only now, but `backend/src/server.js` still validates `DATABASE_URL` during startup.
+
+## 3. Install Dependencies
 
 ```bash
-# Install backend dependencies
-cd backend
-npm install
-
-# Install frontend dependencies
-cd ../frontend
-npm install
-
-# Go back to root
+cd backend && npm install
+cd ../frontend && npm install
 cd ..
 ```
 
-### Step 4: Start Database
+## 4. Run the App
 
-```bash
-# Start PostgreSQL in Docker
-docker-compose up -d
+Terminal 1 (backend):
 
-# Wait 10 seconds for database to initialize
-sleep 10
-
-# Verify it's running
-docker ps
-```
-
-You should see a postgres container running.
-
-### Step 5: Start the Application
-
-Open TWO terminal windows:
-
-**Terminal 1 - Backend:**
 ```bash
 cd backend
 npm run dev
 ```
 
-You should see:
-```
-✅ Gemini API key validated successfully
-🆓 Using FREE Gemini API (15 req/min, 1500 req/day)
-Database connected successfully at [timestamp]
-🚀 Server running on http://localhost:3001
-```
+Terminal 2 (frontend):
 
-**Terminal 2 - Frontend:**
 ```bash
 cd frontend
 npm run dev
 ```
 
-You should see:
-```
-VITE v5.x.x  ready in xxx ms
-➜  Local:   http://localhost:5173/
-```
+Open `http://localhost:5173`.
 
-### Step 6: Use the App!
+## Available Backend Endpoints
 
-Open your browser to: **http://localhost:5173**
+- `POST /api/ai/breakdown`
+- `GET /api/health`
 
-1. Create a task (e.g., "Launch a new product")
-2. Click "Generate AI Breakdown"
-3. Watch as Gemini creates subtasks for FREE!
-4. Edit subtasks, change statuses, manage your tasks
-
-## 🛑 Stopping the Application
+Example request:
 
 ```bash
-# Stop backend: Ctrl+C in terminal 1
-# Stop frontend: Ctrl+C in terminal 2
-
-# Stop database
-docker-compose down
+curl -X POST http://localhost:3001/api/ai/breakdown \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Launch MVP","description":"2-week timeline"}'
 ```
 
-## 🔧 Troubleshooting
+## Scripts
 
-### "Cannot connect to database"
-```bash
-docker-compose down
-docker-compose up -d
-sleep 10
-```
+Backend:
+- `npm run dev`
+- `npm start`
 
-### "Invalid API key"
-- Make sure you edited `backend/.env` with your actual key
-- No quotes around the key
-- Restart the backend after editing
+Frontend:
+- `npm run dev`
+- `npm run build`
+- `npm run preview`
 
-### "Module not found"
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
+## Project Structure
 
-### "Port already in use"
-```bash
-# Kill processes on port 3001 (backend)
-lsof -ti:3001 | xargs kill -9
-
-# Kill processes on port 5173 (frontend)
-lsof -ti:5173 | xargs kill -9
-```
-
-## 📁 Project Structure
-
-```
+```text
 task-breakdown-app-final/
 ├── README.md
-├── docker-compose.yml
 ├── database/
 │   └── schema.sql
 ├── backend/
-│   ├── .env (YOU MUST EDIT THIS)
+│   ├── .env
 │   ├── package.json
 │   └── src/
 │       ├── server.js
-│       ├── routes/
-│       ├── controllers/
-│       ├── models/
+│       ├── controllers/taskController.js
+│       ├── routes/api.js
 │       └── services/
+│           ├── ai.js
+│           └── database.js
 └── frontend/
+    ├── .env
     ├── package.json
-    ├── index.html
     └── src/
-        ├── App.jsx
-        ├── components/
-        └── services/
+        ├── lib/supabase.js
+        ├── contexts/AuthContext.jsx
+        ├── pages/Tasks.jsx
+        └── services/api.js
 ```
 
-## 🎓 Learning Resources
+## Troubleshooting
 
-- Read the code comments - every file is heavily documented
-- Start with `frontend/src/App.jsx` to understand the UI flow
-- Read `backend/src/server.js` to understand the API
-- Check `backend/src/services/ai.js` to see how AI integration works
+- `You must be signed in.`
+  - Sign in first; task queries require Supabase session.
 
-## 🚀 Deployment
+- `Invalid Gemini API key` or 503 from `/api/ai/breakdown`
+  - Check `GEMINI_API_KEY` in `backend/.env`.
+  - Restart backend after editing env vars.
 
-Ready to put it online? The app is ready to deploy to:
-- Frontend: Vercel, Netlify
-- Backend: Railway, Render, Fly.io
-- Database: Railway, Render, Supabase
+- CORS errors in browser
+  - Ensure `CORS_ORIGIN` matches frontend URL (default `http://localhost:5173`).
 
-## ❓ Need Help?
+- Supabase permission errors
+  - Confirm you are using `anon` key in frontend, not service role key.
+  - Verify RLS policies are enabled and correct.
 
-Common issues:
-1. **API key not working** - Make sure you saved `.env` after editing
-2. **Database errors** - Make sure Docker is running
-3. **Port conflicts** - Make sure nothing else is using ports 3001 or 5173
-
-Enjoy building! 🎉
