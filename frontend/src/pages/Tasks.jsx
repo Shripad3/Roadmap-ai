@@ -195,6 +195,14 @@ export default function Tasks() {
     </div>
   ) : null;
 
+  if(isLoading){
+    return(
+      <div className='flex justify-center'>
+        Loading tasks...
+      </div>
+    )
+  }
+
   if (tasks.length === 0) {
     return (
       <>

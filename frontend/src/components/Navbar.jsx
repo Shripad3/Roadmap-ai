@@ -21,16 +21,14 @@ function Navbar({ user, onSignOut }) {
   return (
     <nav className="bg-white fixed w-full z-20 top-0 left-0 border-b border-gray-200">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <Link to="/" className="self-center text-xl text-gray-900 font-semibold whitespace-nowrap">
-          AI Task Breakdown
+        <Link to="/tasks" className="self-center text-xl text-gray-900 font-semibold whitespace-nowrap">
+          Roadmap.ai
         </Link>
 
         <div className="flex md:order-2 items-center space-x-3">
           {user && (
             <>
-              <span className="hidden md:block text-sm text-gray-600">
-                {username}
-              </span>
+              <span className="hidden md:block text-sm text-gray-600">{username}</span>
 
               <button
                 type="button"
@@ -82,14 +80,14 @@ function Navbar({ user, onSignOut }) {
           </button>
         </div>
 
-        <div 
+        <div
           className={`items-center justify-between w-full md:flex md:w-auto md:order-1 ${
             isMenuOpen ? 'block' : 'hidden'
           }`}
         >
           <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium md:space-x-8 md:flex-row md:mt-0">
             <li>
-              <Link to="/" className={navLinkClassName('/')}>
+              <Link to="/tasks" className={navLinkClassName('/tasks')}>
                 Tasks
               </Link>
             </li>
@@ -106,9 +104,7 @@ function Navbar({ user, onSignOut }) {
 
             {user && (
               <li className="md:hidden border-t border-gray-200 mt-2 pt-2">
-                <span className="block py-2 px-3 text-sm text-gray-600">
-                  {username}
-                </span>
+                <span className="block py-2 px-3 text-sm text-gray-600">{username}</span>
               </li>
             )}
           </ul>
