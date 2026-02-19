@@ -62,7 +62,7 @@ export default function Settings() {
                     Receive updates about your tasks
                   </p>
                 </div>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
+                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 hover:cursor-not-allowed">
                   <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition" />
                 </button>
               </div>
@@ -96,8 +96,12 @@ export default function Settings() {
           {/* Danger Zone */}
           <div>
             <h2 className="text-xl font-semibold mb-4 text-red-600">Danger Zone</h2>
-            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-              <p className="text-sm text-gray-700 mb-3">
+            <div
+              className={`border rounded-lg p-4 ${
+                isDark ? 'border-red-700 bg-red-950/40' : 'border-red-200 bg-red-50'
+              }`}
+            >
+              <p className={`text-sm mb-3 ${isDark ? 'text-red-100' : 'text-gray-700'}`}>
                 Once you delete your account, there is no going back. Please be certain.
               </p>
               <button className="btn bg-red-600 text-white hover:bg-red-700">
