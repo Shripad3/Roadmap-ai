@@ -1,7 +1,13 @@
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { theme, setTheme, isDark } = useTheme();
+
+  function handleThemeToggle() {
+    setTheme(isDark ? 'light' : 'dark');
+  }
 
   return (
     <div className="space-y-8">
@@ -65,11 +71,23 @@ export default function Settings() {
                 <div>
                   <p className="font-medium text-gray-900">Dark Mode</p>
                   <p className="text-sm text-gray-500">
-                    Coming soon...
+                    Current theme: {theme}
                   </p>
                 </div>
-                <button disabled className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 opacity-50 cursor-not-allowed">
-                  <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition" />
+                <button
+                  type="button"
+                  onClick={handleThemeToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    isDark ? 'bg-primary-600' : 'bg-gray-200'
+                  }`}
+                  aria-label="Toggle dark mode"
+                  aria-pressed={isDark}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      isDark ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
                 </button>
               </div>
             </div>

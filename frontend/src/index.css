@@ -46,3 +46,53 @@
   }
 }
 
+/* Dark theme overrides */
+[data-theme='dark'] body {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+[data-theme='dark'] .bg-white {
+  background-color: #1f2937 !important;
+}
+
+[data-theme='dark'] .bg-gray-50 {
+  background-color: #111827 !important;
+}
+
+[data-theme='dark'] .bg-gray-100 {
+  background-color: #1f2937 !important;
+}
+
+[data-theme='dark'] .border-gray-200,
+[data-theme='dark'] .border-gray-300 {
+  border-color: #374151 !important;
+}
+
+[data-theme='dark'] .text-gray-900 {
+  color: #f9fafb !important;
+}
+
+[data-theme='dark'] .text-gray-800 {
+  color: #e5e7eb !important;
+}
+
+[data-theme='dark'] .text-gray-700 {
+  color: #d1d5db !important;
+}
+
+[data-theme='dark'] .text-gray-600,
+[data-theme='dark'] .text-gray-500 {
+  color: #9ca3af !important;
+}
+
+[data-theme='dark'] .hover\:bg-gray-50:hover,
+[data-theme='dark'] .hover\:bg-gray-100:hover {
+  background-color: #374151 !important;
+}
+
+[data-theme='dark'] .input {
+  background-color: #111827;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
