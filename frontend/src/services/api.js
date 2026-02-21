@@ -82,15 +82,21 @@ export async function getTask(taskId) {
 
 export async function createTask(taskData) {
   const user = await requireUser();
-  const { title, description } = taskData;
+  const { title, description, status } = taskData;
+
+  const insertPayload = {
+    user_id: user.id,
+    title: title?.trim(),
+    description: description?.trim() || null,
+  };
+
+  if (status) {
+    insertPayload.status = status;
+  }
 
   const { data, error } = await supabase
     .from('tasks')
-    .insert({
-      user_id: user.id,
-      title: title?.trim(),
-      description: description?.trim() || null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
