@@ -47,6 +47,12 @@ async function requireUser() {
   return user;
 }
 
+export async function deleteAccount(){
+  const {error} = await supabase.rpc('delete_user');
+  if(error) throw error;
+  await supabase.auth.signOut();
+}
+
 export async function getTasks() {
   await requireUser();
   const { data, error } = await supabase

@@ -1,12 +1,29 @@
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import * as api from '../services/api';
 
 export default function Settings() {
   const { user } = useAuth();
   const { theme, setTheme, isDark } = useTheme();
+  const [deleteError, setDeleteError] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   function handleThemeToggle() {
     setTheme(isDark ? 'light' : 'dark');
+  }
+  async function handleDeleteAccount() {
+    if (confirm('Are you sure you want to delete your account?')) {
+      try {
+        setDeleteError(null);
+        setIsDeleting(true);
+        await api.deleteAccount();
+      } catch (err) {
+        setDeleteError('Failed to delete account. Please try again');
+        console.log(err);
+        setIsDeleting(false);
+      }
+    }
   }
 
   return (
@@ -55,7 +72,8 @@ export default function Settings() {
           <div className="border-b border-gray-200 pb-6">
             <h2 className="text-xl font-semibold mb-4">Preferences</h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              {/* Email notification toggle */}
+              {/* <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-gray-900">Email Notifications</p>
                   <p className="text-sm text-gray-500">
@@ -65,7 +83,7 @@ export default function Settings() {
                 <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 hover:cursor-not-allowed">
                   <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition" />
                 </button>
-              </div>
+              </div> */}
 
               <div className="flex items-center justify-between">
                 <div>
@@ -104,8 +122,9 @@ export default function Settings() {
               <p className={`text-sm mb-3 ${isDark ? 'text-red-100' : 'text-gray-700'}`}>
                 Once you delete your account, there is no going back. Please be certain.
               </p>
-              <button className="btn bg-red-600 text-white hover:bg-red-700">
-                Delete Account
+              <button className="btn bg-red-600 text-white hover:bg-red-700" onClick={handleDeleteAccount} disabled={isDeleting}>
+                {isDeleting? 'Deleting...' : 'Delete Account'}
+                {deleteError && <p className="text-red-600 text-sm mt-2">{deleteError}</p>}
               </button>
             </div>
           </div>
