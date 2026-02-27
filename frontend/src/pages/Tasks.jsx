@@ -13,23 +13,23 @@ export default function Tasks() {
   const [newDescription, setNewDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const EXAMPLE_TASKS = [
-    {
-      title: "Learn React fundamentals",
-      description: "Cover components, props/state, hooks, and routing. Build a small todo app."
-    },
-    {
-      title: "Build a portfolio website",
-      description: "Create 3 sections (About, Projects, Contact) and deploy on Vercel/Netlify."
-    },
-    {
-      title: "Prepare for interviews (DSA + system design)",
-      description: "Solve 2 problems/day, revise patterns weekly, and do 1 mock interview per week."
-    },
-    {
-      title: "Ship a full-stack mini app",
-      description: "CRUD app with auth + Postgres. Add one AI feature and write a README."
-    }
-  ];
+  {
+    title: "Plan a vacation trip",
+    description: "Choose a destination, book flights and accommodation, and create a day-by-day itinerary."
+  },
+  {
+    title: "Start a fitness routine",
+    description: "Set a weekly workout schedule, track progress, and build healthy eating habits."
+  },
+  {
+    title: "Declutter and organize your home",
+    description: "Go room by room, donate unused items, and set up a system to stay organized."
+  },
+  {
+    title: "Read 12 books this year",
+    description: "Pick one book per month across different genres and set aside 20 minutes daily for reading."
+  }
+];
 
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export default function Tasks() {
             <div>
             <h2 className="text-lg font-semibold text-gray-900">Try an example task</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Click one to create it instantly (you can edit it later).
+            Click one to create a task instantly (you can edit it later).
           </p>
           </div>
           
