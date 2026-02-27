@@ -6,25 +6,33 @@ import * as api from '../services/api';
 export default function Settings() {
   const { user } = useAuth();
   const { theme, setTheme, isDark } = useTheme();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   function handleThemeToggle() {
     setTheme(isDark ? 'light' : 'dark');
   }
+
+  function handleDeleteAccountButton() {
+    setIsDeleteModalOpen(true);
+  }
   async function handleDeleteAccount() {
-    if (confirm('Are you sure you want to delete your account?')) {
-      try {
-        setDeleteError(null);
-        setIsDeleting(true);
-        await api.deleteAccount();
-      } catch (err) {
-        setDeleteError('Failed to delete account. Please try again');
-        console.log(err);
-        setIsDeleting(false);
-      }
+    try {
+      setDeleteError(null);
+      setIsDeleting(true);
+      await api.deleteAccount();
+      setIsDeleteModalOpen(false);
+      setDeleteConfirmText('');
+    } catch (err) {
+      setDeleteError('Failed to delete account. Please try again');
+      console.log(err);
+      setIsDeleting(false);
     }
   }
+
+
 
   return (
     <div className="space-y-8">
@@ -95,35 +103,71 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={handleThemeToggle}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isDark ? 'bg-primary-600' : 'bg-gray-200'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isDark ? 'bg-primary-600' : 'bg-gray-200'
+                    }`}
                   aria-label="Toggle dark mode"
                   aria-pressed={isDark}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      isDark ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDark ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
             </div>
           </div>
 
+          {isDeleteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setIsDeleteModalOpen(false)} />
+              <div className="relative bg-white rounded-xl shadow-lg border border-gray-200 w-full max-w-md mx-4 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Account</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  This is permanent and cannot be undone. Type <strong>DELETE</strong> to confirm.
+                </p>
+
+                <input
+                  type="text"
+                  className="input w-full mb-4"
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                />
+
+                {deleteError && <p className="text-red-600 text-sm mb-3">{deleteError}</p>}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="px-4 py-2 rounded-md border border-gray-200 hover:bg-gray-50"
+                    onClick={() => { setIsDeleteModalOpen(false); setDeleteConfirmText(''); }}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Account'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Danger Zone */}
           <div>
             <h2 className="text-xl font-semibold mb-4 text-red-600">Danger Zone</h2>
             <div
-              className={`border rounded-lg p-4 ${
-                isDark ? 'border-red-700 bg-red-950/40' : 'border-red-200 bg-red-50'
-              }`}
+              className={`border rounded-lg p-4 ${isDark ? 'border-red-700 bg-red-950/40' : 'border-red-200 bg-red-50'
+                }`}
             >
               <p className={`text-sm mb-3 ${isDark ? 'text-red-100' : 'text-gray-700'}`}>
                 Once you delete your account, there is no going back. Please be certain.
               </p>
-              <button className="btn bg-red-600 text-white hover:bg-red-700" onClick={handleDeleteAccount} disabled={isDeleting}>
-                {isDeleting? 'Deleting...' : 'Delete Account'}
+              <button className="btn bg-red-600 text-white hover:bg-red-700" onClick={handleDeleteAccountButton} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
                 {deleteError && <p className="text-red-600 text-sm mt-2">{deleteError}</p>}
               </button>
             </div>
