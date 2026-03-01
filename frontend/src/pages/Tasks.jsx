@@ -109,6 +109,10 @@ export default function Tasks() {
     loadTasks();
   }
 
+  function handleTaskReorder(reorderedTasks) {
+    setTasks(reorderedTasks);
+  }
+
   async function handleTaskUpdated() {
     if (selectedTask) {
       const updated = await api.getTask(selectedTask.id);
@@ -290,6 +294,7 @@ export default function Tasks() {
               tasks={tasks}
               onTaskSelect={handleTaskSelect}
               onTaskDeleted={handleTaskDeleted}
+              onReorder={handleTaskReorder}
             />
           </div>
         </div>

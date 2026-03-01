@@ -9,6 +9,7 @@ import { closePool } from "./services/database.js";
 import { validateApiKey } from "./services/ai.js";
 
 const app = express();
+app.set('trust proxy', 1)
 const PORT = process.env.PORT || 3001;
 
 app.use(

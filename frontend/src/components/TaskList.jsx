@@ -1,7 +1,48 @@
 import { useEffect, useMemo, useState } from "react";
 import * as api from "../services/api";
+import AIBreakdownPreviewModal from "./AIBreakdownPreviewModal";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
+function GripIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-gray-400">
+      <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="12" r="1.5" /><circle cx="11" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+function SortableTaskCard({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  );
+}
+
+export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder }) {
   // --- Edit Modal state ---
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
@@ -15,6 +56,31 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
   // --- Roadmap / Subtasks state per task ---
   // map: taskId -> { open: boolean, loading: boolean, generating: boolean, subtasks: [] }
   const [roadmaps, setRoadmaps] = useState({});
+
+  // --- AI Breakdown Preview Modal ---
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewTaskId, setPreviewTaskId] = useState(null);
+  const [previewSubtasks, setPreviewSubtasks] = useState([]);
+
+  // --- Edit Modal error ---
+  const [editModalError, setEditModalError] = useState(null);
+
+  // --- DnD sensors ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = tasks.findIndex((t) => t.id === active.id);
+    const newIndex = tasks.findIndex((t) => t.id === over.id);
+    const reordered = arrayMove(tasks, oldIndex, newIndex);
+    onReorder(reordered);
+    api.reorderTasks(reordered.map((t) => t.id)).catch((err) => {
+      console.error("Failed to save task order:", err);
+    });
+  }
 
   const editingTask = useMemo(
     () => tasks.find((t) => t.id === editingTaskId) || null,
@@ -34,6 +100,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
     setEditTitle("");
     setEditDescription("");
     setSavingEdit(false);
+    setEditModalError(null);
   }
 
   // Close modal on Escape
@@ -52,12 +119,13 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
     if (!editingTaskId) return;
 
     if (!title) {
-      alert("Title cannot be empty.");
+      setEditModalError("Title cannot be empty.");
       return;
     }
 
     try {
       setSavingEdit(true);
+      setEditModalError(null);
       await api.updateTask(editingTaskId, {
         title,
         description: description || null,
@@ -66,7 +134,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
       onTaskDeleted(); // refresh list
     } catch (error) {
       console.error("Failed to update task:", error);
-      alert("Failed to update task. Please try again.");
+      setEditModalError("Failed to update task. Please try again.");
       setSavingEdit(false);
     }
   }
@@ -177,16 +245,20 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
 
     setRoadmaps((prev) => ({
       ...prev,
-      [taskId]: { ...(prev[taskId] || {}), open: true, generating: true },
+      [taskId]: { ...(prev[taskId] || {}), open: true, generating: true, generateError: null },
     }));
 
     try {
-      await api.generateBreakdown(taskId);
-      // Reload subtasks after generation to show the latest list from DB
-      await loadSubtasks(taskId);
+      const aiSubtasks = await api.fetchAIBreakdown(taskId);
+      setPreviewTaskId(taskId);
+      setPreviewSubtasks(aiSubtasks);
+      setIsPreviewOpen(true);
     } catch (err) {
       console.error("Failed to generate subtasks:", err);
-      alert("Failed to generate subtasks. Please try again.");
+      setRoadmaps((prev) => ({
+        ...prev,
+        [taskId]: { ...(prev[taskId] || {}), generateError: err.message || "Failed to generate subtasks." },
+      }));
     } finally {
       setRoadmaps((prev) => ({
         ...prev,
@@ -224,26 +296,38 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
 
   return (
     <>
-      <div className="space-y-3">
-        {tasks.map((task) => {
-          const rm = roadmaps[task.id];
-          const open = rm?.open ?? false;
-          const loading = rm?.loading ?? false;
-          const generating = rm?.generating ?? false;
-          const subtasks = rm?.subtasks;
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {tasks.map((task) => {
+              const rm = roadmaps[task.id];
+              const open = rm?.open ?? false;
+              const loading = rm?.loading ?? false;
+              const generating = rm?.generating ?? false;
+              const subtasks = rm?.subtasks;
+              const generateError = rm?.generateError ?? null;
 
-          return (
-            <div
-              key={task.id}
-              className="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:shadow-sm transition"
-            >
-              <div className="flex items-start justify-between gap-3">
-                {/* Title (select task) */}
-                <button
-                  className="text-left flex-1 min-w-0"
-                  onClick={() => onTaskSelect(task)}
-                  title="Open task"
-                >
+              return (
+                <SortableTaskCard key={task.id} id={task.id}>
+                  {({ dragHandleProps }) => (
+                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 hover:shadow-sm transition">
+                    <div className="flex items-start gap-3">
+                      {/* Drag handle */}
+                      <button
+                        {...dragHandleProps}
+                        className="mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0"
+                        title="Drag to reorder"
+                        tabIndex={-1}
+                      >
+                        <GripIcon />
+                      </button>
+
+                      {/* Title (select task) */}
+                      <button
+                        className="text-left flex-1 min-w-0"
+                        onClick={() => onTaskSelect(task)}
+                        title="Open task"
+                      >
                   <div className="font-medium text-gray-900 hover:text-primary-600 truncate">
                     {task.title}
                   </div>
@@ -347,6 +431,11 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
                     </span>
                   </div>
 
+                  {/* Generate error */}
+                  {generateError && (
+                    <p className="mt-2 text-xs text-red-600">{generateError}</p>
+                  )}
+
                   {/* Content */}
                   <div className="mt-3">
                     {loading ? (
@@ -390,9 +479,13 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
                 </div>
               ) : null}
             </div>
-          );
-        })}
-      </div>
+          )}
+        </SortableTaskCard>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Edit Modal */}
       {isEditOpen ? (
@@ -447,6 +540,12 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
               </div>
             </div>
 
+            {editModalError && (
+              <div className="mx-5 mb-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {editModalError}
+              </div>
+            )}
+
             <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2">
               <button
                 onClick={closeEditModal}
@@ -466,6 +565,19 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted }) {
           </div>
         </div>
       ) : null}
+
+      {/* AI Breakdown Preview Modal */}
+      {isPreviewOpen && previewTaskId && (
+        <AIBreakdownPreviewModal
+          taskId={previewTaskId}
+          initialSubtasks={previewSubtasks}
+          onSaved={async () => {
+            setIsPreviewOpen(false);
+            await loadSubtasks(previewTaskId);
+          }}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
     </>
   );
 }

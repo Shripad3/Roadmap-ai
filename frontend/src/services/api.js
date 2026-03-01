@@ -27,6 +27,9 @@ async function fetchAPI(endpoint, options = {}) {
 
   const data = await response.json();
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('You\'ve hit the AI request limit. Please wait 15 minutes before trying again.');
+    }
     throw new Error(data.error || `HTTP error ${response.status}`);
   }
   return data;
@@ -58,6 +61,7 @@ export async function getTasks() {
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
+    .order('order_index', { ascending: true })
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -134,7 +138,7 @@ export async function deleteTask(taskId) {
   return null;
 }
 
-export async function generateBreakdown(taskId) {
+export async function fetchAIBreakdown(taskId) {
   const task = await getTask(taskId);
   const aiSubtasks = await fetchAPI('/ai/breakdown', {
     method: 'POST',
@@ -148,6 +152,12 @@ export async function generateBreakdown(taskId) {
     return [];
   }
 
+  return aiSubtasks;
+}
+
+export async function saveSubtasks(taskId, subtasks) {
+  if (!subtasks || subtasks.length === 0) return [];
+
   const { data: maxOrderRows, error: maxOrderError } = await supabase
     .from('subtasks')
     .select('order_index')
@@ -159,7 +169,7 @@ export async function generateBreakdown(taskId) {
 
   const startOrder = (maxOrderRows?.[0]?.order_index ?? -1) + 1;
 
-  const rowsToInsert = aiSubtasks.map((subtask, index) => ({
+  const rowsToInsert = subtasks.map((subtask, index) => ({
     task_id: taskId,
     title: subtask.title,
     description: subtask.description || null,
@@ -174,6 +184,11 @@ export async function generateBreakdown(taskId) {
 
   if (error) throw error;
   return data || [];
+}
+
+export async function generateBreakdown(taskId) {
+  const aiSubtasks = await fetchAIBreakdown(taskId);
+  return saveSubtasks(taskId, aiSubtasks);
 }
 
 export async function updateSubtask(subtaskId, updates) {
@@ -203,6 +218,17 @@ export async function deleteSubtask(subtaskId) {
 export async function reorderSubtasks(taskId, subtaskIds) {
   await requireUser();
 
+  // Phase 1: shift all to a large temp index to avoid UNIQUE constraint conflicts
+  for (const [index, subtaskId] of subtaskIds.entries()) {
+    const { error } = await supabase
+      .from('subtasks')
+      .update({ order_index: 100000 + index })
+      .eq('id', subtaskId)
+      .eq('task_id', taskId);
+    if (error) throw error;
+  }
+
+  // Phase 2: set to correct final values
   const updated = [];
   for (const [index, subtaskId] of subtaskIds.entries()) {
     const { data, error } = await supabase
@@ -212,7 +238,24 @@ export async function reorderSubtasks(taskId, subtaskIds) {
       .eq('task_id', taskId)
       .select()
       .single();
+    if (error) throw error;
+    if (data) updated.push(data);
+  }
 
+  return updated;
+}
+
+export async function reorderTasks(taskIds) {
+  await requireUser();
+
+  const updated = [];
+  for (const [index, taskId] of taskIds.entries()) {
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({ order_index: index })
+      .eq('id', taskId)
+      .select()
+      .single();
     if (error) throw error;
     if (data) updated.push(data);
   }
@@ -226,8 +269,11 @@ export default {
   createTask,
   updateTask,
   deleteTask,
+  fetchAIBreakdown,
+  saveSubtasks,
   generateBreakdown,
   updateSubtask,
   deleteSubtask,
   reorderSubtasks,
+  reorderTasks,
 };

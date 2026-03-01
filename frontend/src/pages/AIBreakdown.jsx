@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
+import AIBreakdownPreviewModal from '../components/AIBreakdownPreviewModal';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -14,9 +15,14 @@ export default function AIBreakdown() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('pending');
   const [creationMode, setCreationMode] = useState('task_only');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(null); // null | 'creating' | 'generating'
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewTaskId, setPreviewTaskId] = useState(null);
+  const [previewSubtasks, setPreviewSubtasks] = useState([]);
+
+  const isSubmitting = loadingStep !== null;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -25,7 +31,7 @@ export default function AIBreakdown() {
       return;
     }
 
-    setIsSubmitting(true);
+    setLoadingStep('creating');
     setError(null);
     setSuccess(null);
 
@@ -39,15 +45,17 @@ export default function AIBreakdown() {
 
       if (creationMode === 'task_only') {
         setSuccess('Task created successfully.');
+        setTitle('');
+        setDescription('');
+        setStatus('pending');
+        setCreationMode('task_only');
       } else {
-        const subtasks = await api.generateBreakdown(createdTask.id);
-        setSuccess(`Task and ${subtasks.length} subtasks created successfully.`);
+        setLoadingStep('generating');
+        const aiSubtasks = await api.fetchAIBreakdown(createdTask.id);
+        setPreviewTaskId(createdTask.id);
+        setPreviewSubtasks(aiSubtasks);
+        setIsPreviewOpen(true);
       }
-
-      setTitle('');
-      setDescription('');
-      setStatus('pending');
-      setCreationMode('task_only');
     } catch (err) {
       if (creationMode === 'task_with_ai' && createdTask?.id) {
         try {
@@ -58,12 +66,35 @@ export default function AIBreakdown() {
       }
       setError(err.message || 'Failed to create task');
     } finally {
-      setIsSubmitting(false);
+      setLoadingStep(null);
     }
+  }
+
+  function resetForm() {
+    setTitle('');
+    setDescription('');
+    setStatus('pending');
+    setCreationMode('task_only');
   }
 
   return (
     <div className="space-y-6">
+      {isPreviewOpen && previewTaskId && (
+        <AIBreakdownPreviewModal
+          taskId={previewTaskId}
+          initialSubtasks={previewSubtasks}
+          onSaved={(savedSubtasks) => {
+            setIsPreviewOpen(false);
+            setSuccess(`Task and ${savedSubtasks.length} subtask${savedSubtasks.length !== 1 ? 's' : ''} created successfully.`);
+            resetForm();
+          }}
+          onClose={() => {
+            setIsPreviewOpen(false);
+            setSuccess('Task created. No subtasks added.');
+            resetForm();
+          }}
+        />
+      )}
       <div className="card">
         <h1 className="mb-2 text-3xl font-bold">AI Task Breakdown</h1>
         <p className="mb-6 text-gray-600">
@@ -160,13 +191,13 @@ export default function AIBreakdown() {
 
           <div className="flex flex-wrap gap-2">
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting
-                ? creationMode === 'task_only'
-                  ? 'Creating task...'
-                  : 'Creating task + breakdown...'
-                : creationMode === 'task_only'
-                  ? 'Create Task'
-                  : 'Create Task + AI Breakdown'}
+              {loadingStep === 'creating'
+                ? 'Creating task...'
+                : loadingStep === 'generating'
+                  ? 'Generating breakdown...'
+                  : creationMode === 'task_only'
+                    ? 'Create Task'
+                    : 'Create Task + AI Breakdown'}
             </button>
             <button
               type="button"

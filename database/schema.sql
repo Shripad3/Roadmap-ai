@@ -7,6 +7,7 @@ CREATE TABLE tasks (
     title TEXT NOT NULL CHECK (length(title) > 0 AND length(title) <= 500),
     description TEXT,
     status task_status NOT NULL DEFAULT 'pending',
+    order_index BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -25,6 +26,7 @@ CREATE TABLE subtasks (
 
 CREATE INDEX idx_subtasks_task_id ON subtasks(task_id);
 CREATE INDEX idx_subtasks_order ON subtasks(task_id, order_index);
+CREATE INDEX idx_tasks_order ON tasks(order_index ASC);
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_subtasks_status ON subtasks(status);
 CREATE INDEX idx_tasks_created_at ON tasks(created_at DESC);

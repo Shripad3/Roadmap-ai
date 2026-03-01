@@ -7,12 +7,81 @@
 
 import { useState, useEffect } from 'react';
 import SubtaskItem from './SubtaskItem';
+import AIBreakdownPreviewModal from './AIBreakdownPreviewModal';
 import * as api from '../services/api';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function GripIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-gray-400">
+      <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="12" r="1.5" /><circle cx="11" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+function SortableSubtaskRow({ subtask, onUpdate, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: subtask.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-start gap-2">
+      <button
+        {...attributes}
+        {...listeners}
+        className="mt-3 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0"
+        title="Drag to reorder"
+        tabIndex={-1}
+      >
+        <GripIcon />
+      </button>
+      <div className="flex-1 min-w-0">
+        <SubtaskItem subtask={subtask} onUpdate={onUpdate} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
 
 export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted }) {
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewSubtasks, setPreviewSubtasks] = useState([]);
+  const [editModalError, setEditModalError] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function handleSubtaskDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = subtasks.findIndex((s) => s.id === active.id);
+    const newIndex = subtasks.findIndex((s) => s.id === over.id);
+    const reordered = arrayMove(subtasks, oldIndex, newIndex);
+    setSubtasks(reordered);
+    api.reorderSubtasks(task.id, reordered.map((s) => s.id)).catch((err) => {
+      console.error('Failed to save subtask order:', err);
+    });
+  }
   // --- Edit Modal state ---
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
@@ -38,6 +107,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
       setEditTitle("");
       setEditDescription("");
       setSavingEdit(false);
+      setEditModalError(null);
     }
   
     // Close modal on Escape
@@ -54,14 +124,15 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
       const title = editTitle.trim();
       const description = editDescription.trim();
       if (!editingTaskId) return;
-  
+
       if (!title) {
-        alert("Title cannot be empty.");
+        setEditModalError("Title cannot be empty.");
         return;
       }
-  
+
       try {
         setSavingEdit(true);
+        setEditModalError(null);
         await api.updateTask(editingTaskId, {
           title,
           description: description || null,
@@ -70,23 +141,19 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
         onTaskUpdated(); // refresh list
       } catch (error) {
         console.error("Failed to update task:", error);
-        alert("Failed to update task. Please try again.");
+        setEditModalError("Failed to update task. Please try again.");
         setSavingEdit(false);
       }
     }
 
   async function handleGenerateBreakdown() {
-    if (!confirm('This will generate AI subtasks. Any existing subtasks will remain. Continue?')) {
-      return;
-    }
-
     setIsGenerating(true);
     setError(null);
 
     try {
-      const newSubtasks = await api.generateBreakdown(task.id);
-      setSubtasks([...subtasks, ...newSubtasks]);
-      onTaskUpdated(); // Refresh parent
+      const aiSubtasks = await api.fetchAIBreakdown(task.id);
+      setPreviewSubtasks(aiSubtasks);
+      setIsPreviewOpen(true);
     } catch (err) {
       setError(err.message || 'Failed to generate breakdown');
     } finally {
@@ -104,10 +171,6 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
   }
 
   async function handleSubtaskDelete(subtaskId) {
-    if (!confirm('Delete this subtask?')) {
-      return;
-    }
-
     try {
       await api.deleteSubtask(subtaskId);
       setSubtasks(subtasks.filter(st => st.id !== subtaskId));
@@ -255,16 +318,20 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
             <p className="text-sm">Click "Generate AI Breakdown" to create subtasks automatically</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {subtasks.map((subtask) => (
-              <SubtaskItem
-                key={subtask.id}
-                subtask={subtask}
-                onUpdate={handleSubtaskUpdate}
-                onDelete={handleSubtaskDelete}
-              />
-            ))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>
+            <SortableContext items={subtasks.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {subtasks.map((subtask) => (
+                  <SortableSubtaskRow
+                    key={subtask.id}
+                    subtask={subtask}
+                    onUpdate={handleSubtaskUpdate}
+                    onDelete={handleSubtaskDelete}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
       {/* Edit Modal */}
@@ -320,6 +387,12 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
               </div>
             </div>
 
+            {editModalError && (
+              <div className="mx-5 mb-1 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {editModalError}
+              </div>
+            )}
+
             <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2">
               <button
                 onClick={closeEditModal}
@@ -339,6 +412,20 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
           </div>
         </div>
       ) : null}
+
+      {/* AI Breakdown Preview Modal */}
+      {isPreviewOpen && (
+        <AIBreakdownPreviewModal
+          taskId={task.id}
+          initialSubtasks={previewSubtasks}
+          onSaved={(newSubtasks) => {
+            setSubtasks([...subtasks, ...newSubtasks]);
+            setIsPreviewOpen(false);
+            onTaskUpdated();
+          }}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 }
