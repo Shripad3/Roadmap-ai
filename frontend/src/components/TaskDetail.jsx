@@ -59,6 +59,26 @@ function SortableSubtaskRow({ subtask, onUpdate, onDelete }) {
   );
 }
 
+const PRIORITY_COLORS = {
+  high: "bg-red-100 text-red-700",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-green-100 text-green-700",
+};
+const PRIORITY_LABELS = { high: "High", medium: "Medium", low: "Low" };
+
+function formatDueDate(due_date) {
+  if (!due_date) return null;
+  const [year, month, day] = due_date.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isOverdue = date < today;
+  return {
+    text: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    isOverdue,
+  };
+}
+
 export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted }) {
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -87,6 +107,8 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
+  const [editDueDate, setEditDueDate] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Update subtasks when task prop changes
@@ -98,14 +120,18 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
       setEditingTaskId(task.id);
       setEditTitle(task.title || "");
       setEditDescription(task.description || "");
+      setEditPriority(task.priority || "medium");
+      setEditDueDate(task.due_date || "");
       setIsEditOpen(true);
     }
-  
+
     function closeEditModal() {
       setIsEditOpen(false);
       setEditingTaskId(null);
       setEditTitle("");
       setEditDescription("");
+      setEditPriority("medium");
+      setEditDueDate("");
       setSavingEdit(false);
       setEditModalError(null);
     }
@@ -136,6 +162,8 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
         await api.updateTask(editingTaskId, {
           title,
           description: description || null,
+          priority: editPriority,
+          due_date: editDueDate || null,
         });
         closeEditModal();
         onTaskUpdated(); // refresh list
@@ -242,8 +270,24 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
         <div className="mb-4">
           <h1 className="text-3xl font-bold mb-2">{task.title}</h1>
           {task.description && (
-            <p className="text-gray-600">{task.description}</p>
+            <p className="text-gray-600 mb-3">{task.description}</p>
           )}
+          {/* Priority + Due Date badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {task.priority && (
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                {PRIORITY_LABELS[task.priority]} Priority
+              </span>
+            )}
+            {task.due_date && (() => {
+              const due = formatDueDate(task.due_date);
+              return due ? (
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${due.isOverdue && task.status !== 'completed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {due.isOverdue && task.status !== 'completed' ? '⚠ Overdue · ' : 'Due · '}{due.text}
+                </span>
+              ) : null;
+            })()}
+          </div>
         </div>
 
         {/* Task Status */}
@@ -380,10 +424,36 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   disabled={savingEdit}
-                  rows={4}
+                  rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="Add more details..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value)}
+                    disabled={savingEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    disabled={savingEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
               </div>
             </div>
 

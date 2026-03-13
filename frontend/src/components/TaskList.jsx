@@ -42,12 +42,35 @@ function SortableTaskCard({ id, children }) {
   );
 }
 
+const PRIORITY_COLORS = {
+  high: "bg-red-100 text-red-700",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-green-100 text-green-700",
+};
+const PRIORITY_LABELS = { high: "High", medium: "Medium", low: "Low" };
+
+function formatDueDate(due_date) {
+  if (!due_date) return null;
+  // due_date is a DATE string like "2026-03-25"
+  const [year, month, day] = due_date.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isOverdue = date < today;
+  return {
+    text: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    isOverdue,
+  };
+}
+
 export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder }) {
   // --- Edit Modal state ---
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
+  const [editDueDate, setEditDueDate] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
   // --- Inline status saving ---
@@ -91,6 +114,8 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
     setEditingTaskId(task.id);
     setEditTitle(task.title || "");
     setEditDescription(task.description || "");
+    setEditPriority(task.priority || "medium");
+    setEditDueDate(task.due_date || "");
     setIsEditOpen(true);
   }
 
@@ -99,6 +124,8 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
     setEditingTaskId(null);
     setEditTitle("");
     setEditDescription("");
+    setEditPriority("medium");
+    setEditDueDate("");
     setSavingEdit(false);
     setEditModalError(null);
   }
@@ -129,6 +156,8 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
       await api.updateTask(editingTaskId, {
         title,
         description: description || null,
+        priority: editPriority,
+        due_date: editDueDate || null,
       });
       closeEditModal();
       onTaskDeleted(); // refresh list
@@ -331,6 +360,22 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
                   <div className="font-medium text-gray-900 hover:text-primary-600 truncate">
                     {task.title}
                   </div>
+                  {/* Priority badge + due date */}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {task.priority && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                        {PRIORITY_LABELS[task.priority]}
+                      </span>
+                    )}
+                    {task.due_date && (() => {
+                      const due = formatDueDate(task.due_date);
+                      return due ? (
+                        <span className={`text-xs ${due.isOverdue && task.status !== 'completed' ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                          {due.isOverdue && task.status !== 'completed' ? '⚠ ' : ''}{due.text}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <div>
                     {/* Roadmap toggle (text, not button) */}
                   <span
@@ -512,9 +557,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
 
             <div className="px-5 py-4 space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                 <input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
@@ -526,17 +569,41 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description (optional)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   disabled={savingEdit}
-                  rows={4}
+                  rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="Add more details..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value)}
+                    disabled={savingEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    disabled={savingEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
               </div>
             </div>
 

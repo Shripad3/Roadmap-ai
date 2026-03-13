@@ -14,6 +14,8 @@ export default function AIBreakdown() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('pending');
+  const [priority, setPriority] = useState('medium');
+  const [dueDate, setDueDate] = useState('');
   const [creationMode, setCreationMode] = useState('task_only');
   const [loadingStep, setLoadingStep] = useState(null); // null | 'creating' | 'generating'
   const [error, setError] = useState(null);
@@ -41,6 +43,8 @@ export default function AIBreakdown() {
         title: title.trim(),
         description: description.trim(),
         status,
+        priority,
+        due_date: dueDate || null,
       });
 
       if (creationMode === 'task_only') {
@@ -74,6 +78,8 @@ export default function AIBreakdown() {
     setTitle('');
     setDescription('');
     setStatus('pending');
+    setPriority('medium');
+    setDueDate('');
     setCreationMode('task_only');
   }
 
@@ -137,7 +143,7 @@ export default function AIBreakdown() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="task-status" className="mb-1 block text-sm font-medium text-gray-700">
-                Task Status
+                Status
               </label>
               <select
                 id="task-status"
@@ -152,6 +158,37 @@ export default function AIBreakdown() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-priority" className="mb-1 block text-sm font-medium text-gray-700">
+                Priority
+              </label>
+              <select
+                id="task-priority"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="input"
+                disabled={isSubmitting}
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-due" className="mb-1 block text-sm font-medium text-gray-700">
+                Due Date (optional)
+              </label>
+              <input
+                id="task-due"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="input"
+                disabled={isSubmitting}
+              />
             </div>
 
             <div>

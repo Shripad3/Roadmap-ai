@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
+import KanbanBoard from '../components/KanbanBoard';
 import * as api from '../services/api';
 
 export default function Tasks() {
@@ -11,7 +12,10 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newPriority, setNewPriority] = useState('medium');
+  const [newDueDate, setNewDueDate] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
   const EXAMPLE_TASKS = [
   {
     title: "Plan a vacation trip",
@@ -67,6 +71,8 @@ export default function Tasks() {
     setIsCreateOpen(false);
     setNewTitle('');
     setNewDescription('');
+    setNewPriority('medium');
+    setNewDueDate('');
   }
 
   async function handleCreateSubmit(e) {
@@ -82,6 +88,8 @@ export default function Tasks() {
       await handleTaskCreated({
         title: newTitle.trim(),
         description: newDescription.trim(),
+        priority: newPriority,
+        due_date: newDueDate || null,
       });
       closeCreateModal();
     } catch (err) {
@@ -170,11 +178,43 @@ export default function Tasks() {
               id="new-task-description"
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              className="input min-h-[100px]"
+              className="input min-h-[80px]"
               placeholder="Add context to improve AI subtasks..."
-              rows={4}
+              rows={3}
               disabled={isCreating}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="new-task-priority" className="mb-1 block text-sm font-medium text-gray-700">
+                Priority
+              </label>
+              <select
+                id="new-task-priority"
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value)}
+                className="input"
+                disabled={isCreating}
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="new-task-due" className="mb-1 block text-sm font-medium text-gray-700">
+                Due Date (optional)
+              </label>
+              <input
+                id="new-task-due"
+                type="date"
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="input"
+                disabled={isCreating}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
@@ -277,25 +317,52 @@ export default function Tasks() {
       ) : (
         <div className="space-y-8">
           <div>
-            <div className="flex justify-between">
-              <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
-              <button
-                onClick={openCreateModal}
-                className="mb-4 inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create New Task
-              </button>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Your Tasks</h2>
+              <div className="flex items-center gap-2">
+                {/* View toggle */}
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1.5 text-sm font-medium transition ${viewMode === 'list' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    title="List view"
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode('kanban')}
+                    className={`px-3 py-1.5 text-sm font-medium transition ${viewMode === 'kanban' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    title="Kanban view"
+                  >
+                    Kanban
+                  </button>
+                </div>
+                <button
+                  onClick={openCreateModal}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Task
+                </button>
+              </div>
             </div>
 
-            <TaskList
-              tasks={tasks}
-              onTaskSelect={handleTaskSelect}
-              onTaskDeleted={handleTaskDeleted}
-              onReorder={handleTaskReorder}
-            />
+            {viewMode === 'list' ? (
+              <TaskList
+                tasks={tasks}
+                onTaskSelect={handleTaskSelect}
+                onTaskDeleted={handleTaskDeleted}
+                onReorder={handleTaskReorder}
+              />
+            ) : (
+              <KanbanBoard
+                tasks={tasks}
+                onTaskSelect={handleTaskSelect}
+                onTasksChanged={loadTasks}
+              />
+            )}
           </div>
         </div>
       )}

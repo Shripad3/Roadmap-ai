@@ -13,6 +13,7 @@ export default defineConfig({
   
   server: {
     port: 5173,
+    strictPort: true, // Error instead of silently picking a different port (prevents CORS mismatch)
     // Proxy API requests to backend during development
     // This avoids CORS issues and simulates production routing
     proxy: {

@@ -92,7 +92,7 @@ export async function getTask(taskId) {
 
 export async function createTask(taskData) {
   const user = await requireUser();
-  const { title, description, status } = taskData;
+  const { title, description, status, priority, due_date } = taskData;
 
   const insertPayload = {
     user_id: user.id,
@@ -100,9 +100,9 @@ export async function createTask(taskData) {
     description: description?.trim() || null,
   };
 
-  if (status) {
-    insertPayload.status = status;
-  }
+  if (status) insertPayload.status = status;
+  if (priority) insertPayload.priority = priority;
+  if (due_date) insertPayload.due_date = due_date;
 
   const { data, error } = await supabase
     .from('tasks')
@@ -138,7 +138,43 @@ export async function deleteTask(taskId) {
   return null;
 }
 
+// --- AI Usage Tracking (Freemium) ---
+
+export const FREE_PLAN_AI_LIMIT = 10;
+
+export async function getAIUsageThisMonth() {
+  const user = await requireUser();
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { count, error } = await supabase
+    .from('ai_usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .gte('created_at', startOfMonth.toISOString());
+
+  if (error) return 0; // fail open — don't block users if table not created yet
+  return count || 0;
+}
+
+async function logAIUsage() {
+  const user = await requireUser();
+  const { error } = await supabase
+    .from('ai_usage_logs')
+    .insert({ user_id: user.id });
+  if (error) console.warn('Failed to log AI usage:', error.message);
+}
+
 export async function fetchAIBreakdown(taskId) {
+  // Freemium gate: check monthly AI usage
+  const usage = await getAIUsageThisMonth();
+  if (usage >= FREE_PLAN_AI_LIMIT) {
+    throw new Error(
+      `You've used all ${FREE_PLAN_AI_LIMIT} free AI generations this month. Upgrade to Pro for unlimited generations.`
+    );
+  }
+
   const task = await getTask(taskId);
   const aiSubtasks = await fetchAPI('/ai/breakdown', {
     method: 'POST',
@@ -152,6 +188,7 @@ export async function fetchAIBreakdown(taskId) {
     return [];
   }
 
+  await logAIUsage();
   return aiSubtasks;
 }
 
@@ -276,4 +313,6 @@ export default {
   deleteSubtask,
   reorderSubtasks,
   reorderTasks,
+  getAIUsageThisMonth,
+  FREE_PLAN_AI_LIMIT,
 };

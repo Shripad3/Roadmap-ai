@@ -7,6 +7,7 @@ import Landing from './pages/Landing';
 import Tasks from './pages/Tasks';
 import AIBreakdown from './pages/AIBreakdown';
 import Settings from './pages/Settings';
+import Dashboard from './pages/Dashboard';
 
 function AppShell({ user, signOut, children }) {
   return (
@@ -74,6 +75,18 @@ function AppRoutes() {
           user ? (
             <AppShell user={user} signOut={signOut}>
               <Settings />
+            </AppShell>
+          ) : (
+            <Navigate to="/auth" replace />
+          )
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          user ? (
+            <AppShell user={user} signOut={signOut}>
+              <Dashboard />
             </AppShell>
           ) : (
             <Navigate to="/auth" replace />

@@ -97,6 +97,11 @@ function Navbar({ user, onSignOut }) {
               </Link>
             </li>
             <li>
+              <Link to="/dashboard" className={navLinkClassName('/dashboard')}>
+                Dashboard
+              </Link>
+            </li>
+            <li>
               <Link to="/settings" className={navLinkClassName('/settings')}>
                 Settings
               </Link>
