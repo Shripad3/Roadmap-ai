@@ -31,6 +31,7 @@ yarn-error.log*
 # Database
 *.db
 *.sqlite
+database/
 
 # Docker volumes
 postgres_data/
