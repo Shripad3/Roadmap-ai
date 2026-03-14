@@ -59,6 +59,15 @@ function SortableSubtaskRow({ subtask, onUpdate, onDelete }) {
   );
 }
 
+function formatHours(h) {
+  if (!h || h <= 0) return null;
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700",
   medium: "bg-amber-100 text-amber-700",
@@ -109,7 +118,28 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
   const [editDescription, setEditDescription] = useState("");
   const [editPriority, setEditPriority] = useState("medium");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editEstimatedHours, setEditEstimatedHours] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [isPublic, setIsPublic] = useState(task.is_public || false);
+  const [copyLabel, setCopyLabel] = useState('Copy');
+
+  async function handleTogglePublic() {
+    const newValue = !isPublic;
+    setIsPublic(newValue);
+    try {
+      await api.setTaskPublic(task.id, newValue);
+      onTaskUpdated?.();
+    } catch (err) {
+      setIsPublic(!newValue);
+      console.error('Failed to update sharing:', err);
+    }
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/share/${task.id}`);
+    setCopyLabel('Copied!');
+    setTimeout(() => setCopyLabel('Copy'), 2000);
+  }
 
   // Update subtasks when task prop changes
   useEffect(() => {
@@ -122,6 +152,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
       setEditDescription(task.description || "");
       setEditPriority(task.priority || "medium");
       setEditDueDate(task.due_date || "");
+      setEditEstimatedHours(task.estimated_hours ?? "");
       setIsEditOpen(true);
     }
 
@@ -132,6 +163,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
       setEditDescription("");
       setEditPriority("medium");
       setEditDueDate("");
+      setEditEstimatedHours("");
       setSavingEdit(false);
       setEditModalError(null);
     }
@@ -164,6 +196,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
           description: description || null,
           priority: editPriority,
           due_date: editDueDate || null,
+          estimated_hours: editEstimatedHours !== '' ? parseFloat(editEstimatedHours) : null,
         });
         closeEditModal();
         onTaskUpdated(); // refresh list
@@ -218,7 +251,7 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
 
   const statusColors = {
     pending: 'bg-gray-100 text-gray-700 border-gray-300',
-    in_progress: 'bg-blue-100 text-blue-700 border-blue-300',
+    in_progress: 'bg-yellow-100 text-yellow-700 border-yellow-300',
     completed: 'bg-green-100 text-green-700 border-green-300',
   };
 
@@ -288,6 +321,48 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
               ) : null;
             })()}
           </div>
+          {subtasks.length === 0 && formatHours(task.estimated_hours) && (
+            <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+              </svg>
+              {formatHours(task.estimated_hours)}
+            </span>
+          )}
+        </div>
+
+        {/* Share */}
+        <div className="mb-4 pb-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Share publicly</p>
+              <p className="text-xs text-gray-500">Anyone with the link can view this roadmap</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleTogglePublic}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPublic ? 'bg-primary-600' : 'bg-gray-200'}`}
+              aria-pressed={isPublic}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {isPublic && (
+            <div className="flex items-center gap-2 mt-3">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/share/${task.id}`}
+                className="input text-xs flex-1 bg-gray-50"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 transition whitespace-nowrap"
+              >
+                {copyLabel}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Task Status */}
@@ -349,9 +424,26 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
 
       {/* Subtasks List */}
       <div className="card">
-        <h2 className="text-2xl font-bold mb-4">
-          Subtasks ({subtasks.length})
-        </h2>
+        <div className="flex items-baseline gap-3 mb-4">
+          <h2 className="text-2xl font-bold">
+            Subtasks ({subtasks.length})
+          </h2>
+          {(() => {
+            const totalH = subtasks.reduce((sum, s) => sum + (parseFloat(s.estimated_hours) || 0), 0);
+            if (!totalH) return null;
+            const hrs = Math.floor(totalH);
+            const mins = Math.round((totalH - hrs) * 60);
+            const fmt = hrs === 0 ? `${mins}m` : mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`;
+            return (
+              <span className="flex items-center gap-1 text-sm text-gray-400">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                </svg>
+                ~{fmt} total
+              </span>
+            );
+          })()}
+        </div>
 
         {subtasks.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
@@ -390,7 +482,6 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
             <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Edit Task</h3>
-                <p className="text-sm text-gray-600">Update the title and description.</p>
               </div>
               <button
                 onClick={closeEditModal}
@@ -454,6 +545,19 @@ export default function TaskDetail({ task, onTaskUpdated, onBack, onTaskDeleted 
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time (hours, optional)</label>
+                <input
+                  type="number"
+                  min="0.25"
+                  step="0.25"
+                  value={editEstimatedHours}
+                  onChange={(e) => setEditEstimatedHours(e.target.value)}
+                  disabled={savingEdit}
+                  placeholder="e.g. 2.5"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
               </div>
             </div>
 

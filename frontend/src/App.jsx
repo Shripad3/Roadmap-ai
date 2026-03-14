@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks';
 import AIBreakdown from './pages/AIBreakdown';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
+import SharedTaskView from './pages/SharedTaskView';
 
 function AppShell({ user, signOut, children }) {
   return (
@@ -93,6 +94,7 @@ function AppRoutes() {
           )
         }
       />
+      <Route path="/share/:taskId" element={<SharedTaskView />} />
       <Route path="*" element={<Navigate to={user ? '/tasks' : '/'} replace />} />
     </Routes>
   );

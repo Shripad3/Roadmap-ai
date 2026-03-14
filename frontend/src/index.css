@@ -91,7 +91,10 @@
   background-color: #374151 !important;
 }
 
-[data-theme='dark'] .input {
+[data-theme='dark'] .input,
+[data-theme='dark'] input:not([type='checkbox']):not([type='radio']),
+[data-theme='dark'] textarea,
+[data-theme='dark'] select {
   background-color: #111827;
   border-color: #4b5563;
   color: #f9fafb;

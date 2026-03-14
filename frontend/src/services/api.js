@@ -92,7 +92,7 @@ export async function getTask(taskId) {
 
 export async function createTask(taskData) {
   const user = await requireUser();
-  const { title, description, status, priority, due_date } = taskData;
+  const { title, description, status, priority, due_date, estimated_hours } = taskData;
 
   const insertPayload = {
     user_id: user.id,
@@ -103,6 +103,7 @@ export async function createTask(taskData) {
   if (status) insertPayload.status = status;
   if (priority) insertPayload.priority = priority;
   if (due_date) insertPayload.due_date = due_date;
+  if (estimated_hours) insertPayload.estimated_hours = estimated_hours;
 
   const { data, error } = await supabase
     .from('tasks')
@@ -210,6 +211,7 @@ export async function saveSubtasks(taskId, subtasks) {
     task_id: taskId,
     title: subtask.title,
     description: subtask.description || null,
+    estimated_hours: subtask.estimated_hours ?? null,
     order_index: startOrder + index,
   }));
 
@@ -300,6 +302,18 @@ export async function reorderTasks(taskIds) {
   return updated;
 }
 
+export async function setTaskPublic(taskId, isPublic) {
+  return updateTask(taskId, { is_public: isPublic });
+}
+
+export async function estimateTaskHours(title, description) {
+  const data = await fetchAPI('/ai/estimate-task', {
+    method: 'POST',
+    body: JSON.stringify({ title, description }),
+  });
+  return data?.estimated_hours ?? null;
+}
+
 export default {
   getTasks,
   getTask,
@@ -314,5 +328,7 @@ export default {
   reorderSubtasks,
   reorderTasks,
   getAIUsageThisMonth,
+  setTaskPublic,
+  estimateTaskHours,
   FREE_PLAN_AI_LIMIT,
 };

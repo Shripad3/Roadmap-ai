@@ -7,16 +7,27 @@
 
 import { useState } from 'react';
 
+function formatHours(h) {
+  if (!h || h <= 0) return null;
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
 export default function SubtaskItem({ subtask, onUpdate, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(subtask.title);
   const [editDescription, setEditDescription] = useState(subtask.description || '');
+  const [editEstimatedHours, setEditEstimatedHours] = useState(subtask.estimated_hours ?? '');
 
   async function handleSave() {
     try {
       await onUpdate(subtask.id, {
         title: editTitle,
         description: editDescription || null,
+        estimated_hours: editEstimatedHours !== '' ? parseFloat(editEstimatedHours) : null,
       });
       setIsEditing(false);
     } catch (error) {
@@ -35,6 +46,7 @@ export default function SubtaskItem({ subtask, onUpdate, onDelete }) {
   function handleCancel() {
     setEditTitle(subtask.title);
     setEditDescription(subtask.description || '');
+    setEditEstimatedHours(subtask.estimated_hours ?? '');
     setIsEditing(false);
   }
 
@@ -70,6 +82,21 @@ export default function SubtaskItem({ subtask, onUpdate, onDelete }) {
             placeholder="Description (optional)"
             rows={2}
           />
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+            </svg>
+            <input
+              type="number"
+              className="input w-28"
+              min="0.25"
+              step="0.25"
+              value={editEstimatedHours}
+              onChange={(e) => setEditEstimatedHours(e.target.value)}
+              placeholder="Est. hours"
+            />
+            <span className="text-sm text-gray-500">hours</span>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handleSave}
@@ -99,7 +126,15 @@ export default function SubtaskItem({ subtask, onUpdate, onDelete }) {
           {subtask.description && (
             <p className="text-sm text-gray-600 mb-2">{subtask.description}</p>
           )}
-          
+          {formatHours(subtask.estimated_hours) && (
+            <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mb-2">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+              </svg>
+              ~{formatHours(subtask.estimated_hours)}
+            </span>
+          )}
+
           {/* Status Selector */}
           <div className="flex flex-wrap gap-2">
             {['pending', 'in_progress', 'completed'].map((status) => (

@@ -42,6 +42,15 @@ function SortableTaskCard({ id, children }) {
   );
 }
 
+function formatHours(h) {
+  if (!h || h <= 0) return null;
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700",
   medium: "bg-amber-100 text-amber-700",
@@ -71,6 +80,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
   const [editDescription, setEditDescription] = useState("");
   const [editPriority, setEditPriority] = useState("medium");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editEstimatedHours, setEditEstimatedHours] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
   // --- Inline status saving ---
@@ -116,6 +126,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
     setEditDescription(task.description || "");
     setEditPriority(task.priority || "medium");
     setEditDueDate(task.due_date || "");
+    setEditEstimatedHours(task.estimated_hours ?? "");
     setIsEditOpen(true);
   }
 
@@ -126,6 +137,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
     setEditDescription("");
     setEditPriority("medium");
     setEditDueDate("");
+    setEditEstimatedHours("");
     setSavingEdit(false);
     setEditModalError(null);
   }
@@ -158,6 +170,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
         description: description || null,
         priority: editPriority,
         due_date: editDueDate || null,
+        estimated_hours: editEstimatedHours !== "" ? parseFloat(editEstimatedHours) : null,
       });
       closeEditModal();
       onTaskDeleted(); // refresh list
@@ -375,6 +388,14 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
                         </span>
                       ) : null;
                     })()}
+                    {formatHours(task.estimated_hours) && (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                        </svg>
+                        ~{formatHours(task.estimated_hours)}
+                      </span>
+                    )}
                   </div>
                   <div>
                     {/* Roadmap toggle (text, not button) */}
@@ -604,6 +625,19 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time (hours, optional)</label>
+                <input
+                  type="number"
+                  min="0.25"
+                  step="0.25"
+                  value={editEstimatedHours}
+                  onChange={(e) => setEditEstimatedHours(e.target.value)}
+                  disabled={savingEdit}
+                  placeholder="e.g. 2.5"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
               </div>
             </div>
 

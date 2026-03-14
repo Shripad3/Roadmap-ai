@@ -25,6 +25,13 @@ const aiRateLimiter = rateLimit({
  */
 router.post('/ai/breakdown', aiRateLimiter, taskController.generateBreakdownFromText);
 
+/**
+ * POST /api/ai/estimate-task
+ * Estimate time for a task (used when no manual estimate is provided)
+ * Body: { title: string, description?: string }
+ */
+router.post('/ai/estimate-task', aiRateLimiter, taskController.estimateTaskTime);
+
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================

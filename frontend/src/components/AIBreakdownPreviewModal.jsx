@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 
+function formatHours(h) {
+  if (!h || h <= 0) return null;
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
 export default function AIBreakdownPreviewModal({ taskId, initialSubtasks, onSaved, onClose }) {
   const [subtasks, setSubtasks] = useState(
     initialSubtasks.map((s, i) => ({ ...s, _key: i }))
@@ -128,6 +137,22 @@ export default function AIBreakdownPreviewModal({ taskId, initialSubtasks, onSav
                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:opacity-60 resize-none"
                   />
                 )}
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                  </svg>
+                  <input
+                    type="number"
+                    min="0.25"
+                    step="0.25"
+                    value={subtask.estimated_hours ?? ''}
+                    onChange={(e) => updateSubtask(subtask._key, 'estimated_hours', e.target.value === '' ? null : parseFloat(e.target.value))}
+                    disabled={busy}
+                    placeholder="Est. hours"
+                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:opacity-60"
+                  />
+                  <span className="text-xs text-gray-400">hours</span>
+                </div>
               </div>
             ))
           )}
@@ -142,8 +167,9 @@ export default function AIBreakdownPreviewModal({ taskId, initialSubtasks, onSav
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-between shrink-0">
-          <button
-            onClick={handleRegenerate}
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={handleRegenerate}
             disabled={busy}
             className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-60"
           >
@@ -159,6 +185,12 @@ export default function AIBreakdownPreviewModal({ taskId, initialSubtasks, onSav
               'Regenerate'
             )}
           </button>
+            {(() => {
+              const total = subtasks.reduce((sum, s) => sum + (parseFloat(s.estimated_hours) || 0), 0);
+              const fmt = formatHours(total);
+              return fmt ? <span className="text-xs text-gray-400">~{fmt} total</span> : null;
+            })()}
+          </div>
 
           <div className="flex gap-2">
             <button

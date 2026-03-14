@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
 import KanbanBoard from '../components/KanbanBoard';
+import OnboardingModal from '../components/OnboardingModal';
 import * as api from '../services/api';
+
+const ONBOARDING_KEY = 'roadmap_onboarded';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -14,8 +17,15 @@ export default function Tasks() {
   const [newDescription, setNewDescription] = useState('');
   const [newPriority, setNewPriority] = useState('medium');
   const [newDueDate, setNewDueDate] = useState('');
+  const [newEstimatedHours, setNewEstimatedHours] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
+  const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem(ONBOARDING_KEY));
+
+  function handleOnboardingComplete() {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    setShowOnboarding(false);
+  }
   const EXAMPLE_TASKS = [
   {
     title: "Plan a vacation trip",
@@ -73,6 +83,7 @@ export default function Tasks() {
     setNewDescription('');
     setNewPriority('medium');
     setNewDueDate('');
+    setNewEstimatedHours('');
   }
 
   async function handleCreateSubmit(e) {
@@ -85,13 +96,26 @@ export default function Tasks() {
     try {
       setIsCreating(true);
       setError(null);
-      await handleTaskCreated({
+      const manualHours = newEstimatedHours ? parseFloat(newEstimatedHours) : null;
+      const newTask = await handleTaskCreated({
         title: newTitle.trim(),
         description: newDescription.trim(),
         priority: newPriority,
         due_date: newDueDate || null,
+        estimated_hours: manualHours,
       });
       closeCreateModal();
+      // If user left estimate blank, ask AI to fill it in (fire-and-forget)
+      if (!manualHours && newTask?.id) {
+        api.estimateTaskHours(newTask.title, newTask.description || '').then((hours) => {
+          if (hours) {
+            api.updateTask(newTask.id, { estimated_hours: hours }).then(() => {
+              setTasks((prev) => prev.map((t) => t.id === newTask.id ? { ...t, estimated_hours: hours } : t));
+              setSelectedTask((prev) => prev?.id === newTask.id ? { ...prev, estimated_hours: hours } : prev);
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
     } catch (err) {
       setError(err.message || 'Failed to create task');
     } finally {
@@ -217,6 +241,26 @@ export default function Tasks() {
             </div>
           </div>
 
+          <div>
+            <label htmlFor="new-task-hours" className="mb-1 block text-sm font-medium text-gray-700">
+              Estimated Time (optional)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="new-task-hours"
+                type="number"
+                min="0.25"
+                step="0.25"
+                value={newEstimatedHours}
+                onChange={(e) => setNewEstimatedHours(e.target.value)}
+                className="input"
+                placeholder="Leave blank for AI estimate"
+                disabled={isCreating}
+              />
+              <span className="text-sm text-gray-500 whitespace-nowrap">hours</span>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
             <button
               type="button"
@@ -239,7 +283,7 @@ export default function Tasks() {
     </div>
   ) : null;
 
-  if(isLoading){
+  if(isLoading && !selectedTask){
     return(
       <div className='flex justify-center'>
         Loading tasks...
@@ -368,6 +412,7 @@ export default function Tasks() {
       )}
 
       {createTaskModal}
+      {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
     </div>
   );
 }

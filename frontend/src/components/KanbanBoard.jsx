@@ -94,9 +94,9 @@ function KanbanColumn({ columnId, title, tasks, onTaskSelect, isOver }) {
       dot: 'bg-gray-400',
     },
     in_progress: {
-      header: 'text-blue-700 border-blue-200',
-      bg: isOver ? 'bg-blue-100' : 'bg-blue-50',
-      dot: 'bg-blue-500',
+      header: 'text-yellow-700 border-yellow-200',
+      bg: isOver ? 'bg-yellow-100' : 'bg-yellow-100',
+      dot: 'bg-yellow-500',
     },
     completed: {
       header: 'text-green-700 border-green-200',
