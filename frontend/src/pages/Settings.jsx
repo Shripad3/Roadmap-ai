@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import * as api from '../services/api';
 
 const ONBOARDING_KEY = 'roadmap_onboarded';
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isInStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -14,6 +22,26 @@ export default function Settings() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installed, setInstalled] = useState(isInStandaloneMode());
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setInstalled(true));
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  async function handleInstall() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
+    setInstallPrompt(null);
+  }
 
   function handleThemeToggle() {
     setTheme(isDark ? 'light' : 'dark');
@@ -157,6 +185,32 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Install App */}
+          {!installed && (
+            <div className="border-b border-gray-200 pb-6">
+              <h2 className="text-xl font-semibold mb-4">Install App</h2>
+              {isIOS() ? (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800 space-y-1">
+                  <p className="font-medium">Add to Home Screen on iOS</p>
+                  <p>Tap the <strong>Share</strong> button in Safari, then select <strong>"Add to Home Screen"</strong>.</p>
+                </div>
+              ) : installPrompt ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Add to Home Screen</p>
+                    <p className="text-sm text-gray-500">Install the app for quick access</p>
+                  </div>
+                  <button
+                    onClick={handleInstall}
+                    className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition"
+                  >
+                    Install
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
 
