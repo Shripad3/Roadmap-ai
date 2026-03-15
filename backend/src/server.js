@@ -5,7 +5,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import apiRoutes from "./routes/api.js";
-import { closePool } from "./services/database.js";
 import { validateApiKey } from "./services/ai.js";
 
 const app = express();
@@ -59,10 +58,6 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is required");
-    }
-
     try {
       await validateApiKey();
       console.log("✅ Gemini API key validated");
@@ -90,28 +85,8 @@ async function startServer() {
   }
 }
 
-process.on("SIGINT", async () => {
-  console.log("\n🛑 Shutting down gracefully...");
-  try {
-    await closePool();
-    console.log("✅ Database connections closed");
-    process.exit(0);
-  } catch (error) {
-    console.error("❌ Error during shutdown:", error);
-    process.exit(1);
-  }
-});
-
-process.on("SIGTERM", async () => {
-  console.log("\n🛑 SIGTERM received, shutting down...");
-  try {
-    await closePool();
-    process.exit(0);
-  } catch (error) {
-    console.error("Error during shutdown:", error);
-    process.exit(1);
-  }
-});
+process.on("SIGINT", () => process.exit(0));
+process.on("SIGTERM", () => process.exit(0));
 
 startServer();
 
