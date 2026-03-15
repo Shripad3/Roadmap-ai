@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as api from '../services/api';
+import PomodoroTimer from '../components/PomodoroTimer';
 
 function StatCard({ label, value, sub, color }) {
   return (
@@ -22,6 +23,7 @@ function ProgressBar({ value, color }) {
     </div>
   );
 }
+
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
@@ -108,19 +110,53 @@ export default function Dashboard() {
         <StatCard label="Overdue" value={overdue} sub={overdue > 0 ? 'needs attention' : 'all on track'} color={overdue > 0 ? 'text-red-600' : 'text-gray-900'} />
       </div>
 
-      {/* Overall progress */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-900">Overall Completion</h2>
-          <span className="text-2xl font-bold text-primary-600">{completionRate}%</span>
+      {/* Overall progress + Upcoming Deadlines | Pomodoro */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <div className="flex flex-col gap-0">
+          <div className="bg-white border border-gray-200 rounded-t-xl rounded-b-xl mb-3 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-900">Overall Completion</h2>
+              <span className="text-2xl font-bold text-primary-600">{completionRate}%</span>
+            </div>
+            <ProgressBar value={completionRate} color="bg-primary-600" />
+            <div className="flex gap-4 mt-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" /> {pending} pending</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> {inProgress} in progress</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> {completed} done</span>
+            </div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-t-xl rounded-b-xl p-5">
+            <h2 className="font-semibold text-gray-900 mb-3">Upcoming Deadlines</h2>
+            {upcoming.length === 0 ? (
+              <p className="text-xs text-gray-400">No upcoming deadlines.</p>
+            ) : upcoming.map((task) => {
+              const [y, m, d] = task.due_date.split('-').map(Number);
+              const dueDate = new Date(y, m - 1, d);
+              const isOverdue = dueDate < today;
+              return (
+                <div key={task.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {task.priority && (
+                      <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${task.priority === 'high' ? 'bg-red-100 text-red-700' : task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        {task.priority[0].toUpperCase() + task.priority.slice(1)}
+                      </span>
+                    )}
+                    <span className="text-sm text-gray-900 truncate">{task.title}</span>
+                  </div>
+                  <span className={`shrink-0 text-xs font-medium ml-3 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+                    {isOverdue ? '⚠ ' : ''}{dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <ProgressBar value={completionRate} color="bg-primary-600" />
-        <div className="flex gap-4 mt-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" /> {pending} pending</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> {inProgress} in progress</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> {completed} done</span>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="font-semibold text-gray-900 mb-3">Pomodoro Timer</h2>
+          <PomodoroTimer />
         </div>
       </div>
+
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Priority breakdown */}
@@ -166,38 +202,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Upcoming tasks */}
-      {upcoming.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Upcoming Deadlines</h2>
-          <div className="space-y-2">
-            {upcoming.map((task) => {
-              const [y, m, d] = task.due_date.split('-').map(Number);
-              const dueDate = new Date(y, m - 1, d);
-              const isOverdue = dueDate < today;
-              return (
-                <div key={task.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {task.priority && (
-                      <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                        task.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {task.priority[0].toUpperCase() + task.priority.slice(1)}
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-900 truncate">{task.title}</span>
-                  </div>
-                  <span className={`shrink-0 text-xs font-medium ml-3 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-                    {isOverdue ? '⚠ ' : ''}{dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

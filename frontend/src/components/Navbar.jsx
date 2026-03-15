@@ -19,7 +19,7 @@ function Navbar({ user, onSignOut }) {
     }`;
 
   return (
-    <nav className="bg-white fixed w-full z-20 top-0 left-0 border-b border-gray-200">
+    <nav className="hidden md:block bg-white fixed w-full z-20 top-0 left-0 border-b border-gray-200">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <Link to="/tasks" className="self-center text-xl text-gray-900 font-semibold whitespace-nowrap">
           Roadmap.ai
