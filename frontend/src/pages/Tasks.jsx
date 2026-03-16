@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
 import KanbanBoard from '../components/KanbanBoard';
-import OnboardingModal from '../components/OnboardingModal';
 import * as api from '../services/api';
 
-const ONBOARDING_KEY = 'roadmap_onboarded';
+
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -20,12 +19,7 @@ export default function Tasks() {
   const [newEstimatedHours, setNewEstimatedHours] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
-  const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem(ONBOARDING_KEY));
-
-  function handleOnboardingComplete() {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
-    setShowOnboarding(false);
-  }
+  
   const EXAMPLE_TASKS = [
   {
     title: "Plan a vacation trip",
@@ -412,7 +406,7 @@ export default function Tasks() {
       )}
 
       {createTaskModal}
-      {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
+      
     </div>
   );
 }

@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../services/api';
 import PomodoroTimer from '../components/PomodoroTimer';
+import OnboardingModal from '../components/OnboardingModal';
+
+const ONBOARDING_KEY = 'roadmap_onboarded';
 
 const PRIORITY_COLORS = {
   high:   'bg-red-100 text-red-700',
@@ -25,6 +28,12 @@ export default function Today() {
   const [newTitle, setNewTitle] = useState('');
   const [newPriority, setNewPriority] = useState('medium');
   const [saving, setSaving] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem(ONBOARDING_KEY));
+
+  function handleOnboardingComplete() {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    setShowOnboarding(false);
+  }
 
   const username = user?.email?.split('@')[0] ?? 'there';
 
@@ -182,6 +191,7 @@ export default function Today() {
               </button>
             </form>
           </div>
+          
         </div>
       )}
 
@@ -193,6 +203,7 @@ export default function Today() {
       >
         +
       </button>
+      {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
     </div>
   );
 }
@@ -217,5 +228,6 @@ function TaskRow({ task, onClick }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
       </svg>
     </button>
+    
   );
 }
