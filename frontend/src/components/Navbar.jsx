@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUI } from '../contexts/UIContext';
 
 function Navbar({ user, onSignOut }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const username = user ? user.email.split('@')[0] : 'Guest';
   const location = useLocation();
   const { isDark, setTheme } = useTheme();
+  const { openCommandPalette } = useUI();
 
   const isActive = (path) => location.pathname === path;
   const navLinkClassName = (path) =>
@@ -20,7 +22,7 @@ function Navbar({ user, onSignOut }) {
 
   return (
     <nav className="hidden md:block bg-white fixed w-full z-20 top-0 left-0 border-b border-gray-200">
-      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3">
         <Link to="/tasks" className="self-center text-xl text-gray-900 font-semibold whitespace-nowrap">
           Roadmap.ai
         </Link>
@@ -28,6 +30,13 @@ function Navbar({ user, onSignOut }) {
         <div className="flex md:order-2 items-center space-x-3">
           {user && (
             <>
+              <button
+                onClick={openCommandPalette}
+                className="hidden md:flex items-center gap-1 text-xs border border-gray-200 rounded px-2 py-1 text-gray-400 font-mono hover:text-gray-600 hover:border-gray-300 transition-colors"
+                title="Command palette"
+              >
+                ⌘K
+              </button>
               <span className="hidden md:block text-sm text-gray-600">{username}</span>
 
               <button
@@ -86,6 +95,11 @@ function Navbar({ user, onSignOut }) {
           }`}
         >
           <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium md:space-x-8 md:flex-row md:mt-0">
+            <li>
+              <Link to="/today" className={navLinkClassName('/today')}>
+                Today
+              </Link>
+            </li>
             <li>
               <Link to="/tasks" className={navLinkClassName('/tasks')}>
                 Tasks

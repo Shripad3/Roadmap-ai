@@ -219,6 +219,81 @@ Respond with ONLY a single decimal number representing hours (e.g. 0.5, 2, 4.5).
 }
 
 /**
+ * Parse a natural language task description into structured fields.
+ *
+ * @param {string} text - The raw user input, e.g. "Fix login bug by Friday, high priority"
+ * @param {string} todayStr - Today's date in YYYY-MM-DD format (injected server-side)
+ * @returns {Promise<Object>} Parsed task fields
+ */
+export async function parseNaturalLanguageTask(text, todayStr) {
+  try {
+    if (!model) {
+      initializeGemini();
+    }
+
+    const prompt = `Today is ${todayStr}. Parse the following task description into structured data.
+
+Input: "${text}"
+
+Return ONLY valid JSON with exactly these fields:
+{
+  "title": "the core task, stripped of metadata like dates and priority",
+  "priority": "high" | "medium" | "low" | null,
+  "due_date": "YYYY-MM-DD" | null,
+  "estimated_hours": number | null,
+  "description": "a one-sentence elaboration if helpful, else null"
+}
+
+Rules:
+- Extract priority from words like: urgent, critical, asap, p1 → "high"; important, p2 → "medium"; low priority, whenever, eventually, p3 → "low"
+- Extract due date from phrases like: "by Friday", "tomorrow", "next Monday", "end of month", "EOD", "this week" — resolve relative to today
+- estimated_hours: extract if mentioned (e.g. "should take 2 hours") — round to nearest 0.25; else null
+- title should be a clean, action-oriented task title without the metadata
+- If a field is not mentioned, return null for it
+- Return null for priority if not mentioned (do not default to medium)
+- Valid JSON only, no markdown, no explanation outside the JSON`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text().trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      const jsonMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[1]);
+      } else {
+        const objMatch = responseText.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          parsed = JSON.parse(objMatch[0]);
+        } else {
+          throw new Error("Failed to parse AI response as JSON");
+        }
+      }
+    }
+
+    // Sanitize
+    parsed.title = (parsed.title || text).trim().substring(0, 200);
+    parsed.priority = ["high", "medium", "low"].includes(parsed.priority) ? parsed.priority : null;
+    parsed.due_date = parsed.due_date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.due_date) ? parsed.due_date : null;
+    if (parsed.estimated_hours !== null && parsed.estimated_hours !== undefined) {
+      const h = parseFloat(parsed.estimated_hours);
+      parsed.estimated_hours = !isNaN(h) && h > 0 ? Math.min(40, Math.round(h * 4) / 4) : null;
+    } else {
+      parsed.estimated_hours = null;
+    }
+    parsed.description = parsed.description || null;
+
+    return parsed;
+  } catch (error) {
+    console.error("AI parse error:", error.message);
+    throw error;
+  }
+}
+
+/**
  * Validate API key on startup
  */
 export async function validateApiKey() {
@@ -239,4 +314,4 @@ export async function validateApiKey() {
   }
 }
 
-export default { generateSubtasks, estimateTaskHours, validateApiKey };
+export default { generateSubtasks, estimateTaskHours, parseNaturalLanguageTask, validateApiKey };

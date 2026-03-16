@@ -32,6 +32,13 @@ router.post('/ai/breakdown', aiRateLimiter, taskController.generateBreakdownFrom
  */
 router.post('/ai/estimate-task', aiRateLimiter, taskController.estimateTaskTime);
 
+/**
+ * POST /api/ai/parse-task
+ * Parse natural language into structured task fields
+ * Body: { text: string }
+ */
+router.post('/ai/parse-task', aiRateLimiter, taskController.parseTaskFromNaturalLanguage);
+
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================

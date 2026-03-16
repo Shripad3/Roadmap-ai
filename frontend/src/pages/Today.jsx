@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useUI } from '../contexts/UIContext';
+import taskDetail from '../components/TaskDetail';
 import * as api from '../services/api';
 import PomodoroTimer from '../components/PomodoroTimer';
 import OnboardingModal from '../components/OnboardingModal';
+import TaskDetail from '../components/TaskDetail';
 
 const ONBOARDING_KEY = 'roadmap_onboarded';
 
 const PRIORITY_COLORS = {
-  high:   'bg-red-100 text-red-700',
+  high: 'bg-red-100 text-red-700',
   medium: 'bg-amber-100 text-amber-700',
-  low:    'bg-green-100 text-green-700',
+  low: 'bg-green-100 text-green-700',
 };
 
 function getGreeting(name) {
@@ -22,12 +25,9 @@ function getGreeting(name) {
 export default function Today() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { openQuickCapture } = useUI();
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newPriority, setNewPriority] = useState('medium');
-  const [saving, setSaving] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem(ONBOARDING_KEY));
 
   function handleOnboardingComplete() {
@@ -62,29 +62,6 @@ export default function Today() {
     if (!t.due_date || t.status === 'completed') return false;
     return t.due_date === todayStr;
   });
-
-  async function handleQuickAdd(e) {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    setSaving(true);
-    try {
-      const task = await api.createTask({ title: newTitle.trim(), priority: newPriority, status: 'pending' });
-      setTasks((prev) => [task, ...prev]);
-      setNewTitle('');
-      setNewPriority('medium');
-      setShowQuickAdd(false);
-      // fire-and-forget AI estimate
-      if (task?.id) {
-        api.estimateTaskHours(task.title, '').then((hours) => {
-          if (hours) api.updateTask(task.id, { estimated_hours: hours }).catch(() => {});
-        }).catch(() => {});
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (isLoading) {
     return (
@@ -128,7 +105,7 @@ export default function Today() {
             {overdue.map((task) => (
               <TaskRow key={task.id} task={task} onClick={() => navigate('/tasks')} />
             ))}
-          </div>
+            </div>
         </div>
       )}
 
@@ -159,45 +136,9 @@ export default function Today() {
         </div>
       )}
 
-      {/* Quick add modal */}
-      {showQuickAdd && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-end" onClick={() => setShowQuickAdd(false)}>
-          <div className="w-full bg-white rounded-t-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-gray-900 mb-4">New Task</h3>
-            <form onSubmit={handleQuickAdd} className="space-y-3">
-              <input
-                autoFocus
-                type="text"
-                placeholder="Task title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <select
-                value={newPriority}
-                onChange={(e) => setNewPriority(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="high">High priority</option>
-                <option value="medium">Medium priority</option>
-                <option value="low">Low priority</option>
-              </select>
-              <button
-                type="submit"
-                disabled={saving || !newTitle.trim()}
-                className="w-full py-3 bg-primary-600 text-white rounded-xl font-medium text-sm disabled:opacity-50"
-              >
-                {saving ? 'Adding…' : 'Add Task'}
-              </button>
-            </form>
-          </div>
-          
-        </div>
-      )}
-
       {/* FAB */}
       <button
-        onClick={() => setShowQuickAdd(true)}
+        onClick={() => openQuickCapture(() => api.getTasks().then(setTasks).catch(() => { }))}
         className="fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-primary-700 active:scale-95 transition-transform z-20"
         aria-label="Add task"
       >
@@ -214,10 +155,9 @@ function TaskRow({ task, onClick }) {
       onClick={onClick}
       className="w-full flex items-center gap-3 py-2 text-left group"
     >
-      <span className={`shrink-0 w-2 h-2 rounded-full ${
-        task.status === 'completed' ? 'bg-green-500' :
+      <span className={`shrink-0 w-2 h-2 rounded-full ${task.status === 'completed' ? 'bg-green-500' :
         task.status === 'in_progress' ? 'bg-blue-400' : 'bg-gray-300'
-      }`} />
+        }`} />
       <span className="flex-1 text-sm text-gray-800 truncate group-hover:text-primary-600">{task.title}</span>
       {task.priority && (
         <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[task.priority] ?? ''}`}>
@@ -228,6 +168,6 @@ function TaskRow({ task, onClick }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
       </svg>
     </button>
-    
+
   );
 }

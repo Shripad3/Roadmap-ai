@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as api from "../services/api";
+import { useUI } from "../contexts/UIContext";
 import AIBreakdownPreviewModal from "./AIBreakdownPreviewModal";
 import {
   DndContext,
@@ -72,7 +73,8 @@ function formatDueDate(due_date) {
   };
 }
 
-export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder }) {
+export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder, onTaskOptimisticUpdate, onTasksChanged }) {
+  const { showToast } = useUI();
   // --- Edit Modal state ---
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
@@ -83,8 +85,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
   const [editEstimatedHours, setEditEstimatedHours] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // --- Inline status saving ---
-  const [savingStatusId, setSavingStatusId] = useState(null);
+  // (optimistic updates: no spinner needed for status changes)
 
   // --- Roadmap / Subtasks state per task ---
   // map: taskId -> { open: boolean, loading: boolean, generating: boolean, subtasks: [] }
@@ -165,7 +166,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
     try {
       setSavingEdit(true);
       setEditModalError(null);
-      await api.updateTask(editingTaskId, {
+      const updated = await api.updateTask(editingTaskId, {
         title,
         description: description || null,
         priority: editPriority,
@@ -173,7 +174,11 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
         estimated_hours: editEstimatedHours !== "" ? parseFloat(editEstimatedHours) : null,
       });
       closeEditModal();
-      onTaskDeleted(); // refresh list
+      if (onTaskOptimisticUpdate && updated) {
+        onTaskOptimisticUpdate(editingTaskId, updated);
+      } else {
+        onTaskDeleted(); // fallback: full refresh
+      }
     } catch (error) {
       console.error("Failed to update task:", error);
       setEditModalError("Failed to update task. Please try again.");
@@ -184,31 +189,38 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
   async function handleDelete(taskId, taskTitle) {
     if (!confirm(`Delete "${taskTitle}" and all its subtasks?`)) return;
 
+    // Optimistic: remove from list immediately
+    const snapshot = tasks;
+    if (onTasksChanged) onTasksChanged(tasks.filter((t) => t.id !== taskId));
+
     try {
       await api.deleteTask(taskId);
-      // cleanup local roadmap state
       setRoadmaps((prev) => {
         const copy = { ...prev };
         delete copy[taskId];
         return copy;
       });
-      onTaskDeleted();
+      if (!onTasksChanged) onTaskDeleted();
     } catch (error) {
       console.error("Failed to delete task:", error);
-      alert("Failed to delete task. Please try again.");
+      if (onTasksChanged) onTasksChanged(snapshot);
+      showToast("Failed to delete task. Please try again.");
     }
   }
 
   async function handleStatusChange(taskId, newStatus) {
+    const task = tasks.find((t) => t.id === taskId);
+    const prevStatus = task?.status;
+
+    // Optimistic: update immediately
+    if (onTaskOptimisticUpdate) onTaskOptimisticUpdate(taskId, { status: newStatus });
+
     try {
-      setSavingStatusId(taskId);
       await api.updateTask(taskId, { status: newStatus });
-      onTaskDeleted();
     } catch (error) {
       console.error("Failed to update status:", error);
-      alert("Failed to update status. Please try again.");
-    } finally {
-      setSavingStatusId(null);
+      if (onTaskOptimisticUpdate) onTaskOptimisticUpdate(taskId, { status: prevStatus });
+      showToast("Failed to update status.");
     }
   }
 
@@ -428,8 +440,7 @@ export default function TaskList({ tasks, onTaskSelect, onTaskDeleted, onReorder
                     <select
                       value={task.status}
                       onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                      disabled={savingStatusId === task.id}
-                      className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-white hover:bg-gray-50 disabled:opacity-60"
+                      className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-white hover:bg-gray-50"
                       title="Change status"
                     >
                       <option value="pending">{statusLabels.pending}</option>

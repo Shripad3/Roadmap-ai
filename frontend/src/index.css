@@ -12,7 +12,7 @@
 /* Custom base styles */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-white text-gray-900;
   }
 }
 
@@ -20,29 +20,34 @@
 @layer components {
   /* Button styles */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150;
   }
-  
+
   .btn-primary {
     @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
   }
-  
+
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400;
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 border border-gray-200;
   }
-  
+
   .btn-danger {
     @apply bg-red-600 text-white hover:bg-red-700 active:bg-red-800;
   }
-  
+
   /* Input styles */
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
   }
-  
+
   /* Card styles */
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply bg-white rounded-md border border-gray-200 p-4;
+  }
+
+  /* Keyboard shortcut badge */
+  .kbd {
+    @apply inline-flex items-center px-1.5 py-0.5 rounded border border-gray-300 text-xs font-mono text-gray-500 bg-gray-50;
   }
 }
 
@@ -57,6 +62,12 @@
 [data-theme='dark'] body {
   background-color: #111827;
   color: #f9fafb;
+}
+
+[data-theme='dark'] .kbd {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #9ca3af;
 }
 
 [data-theme='dark'] .bg-white {

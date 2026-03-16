@@ -314,6 +314,13 @@ export async function estimateTaskHours(title, description) {
   return data?.estimated_hours ?? null;
 }
 
+export async function parseTaskNaturalLanguage(text) {
+  return fetchAPI('/ai/parse-task', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
 export default {
   getTasks,
   getTask,
@@ -330,5 +337,6 @@ export default {
   getAIUsageThisMonth,
   setTaskPublic,
   estimateTaskHours,
+  parseTaskNaturalLanguage,
   FREE_PLAN_AI_LIMIT,
 };

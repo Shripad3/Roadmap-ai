@@ -64,7 +64,40 @@ export async function estimateTaskTime(req, res) {
   }
 }
 
+/**
+ * Parse a natural language task description into structured task fields
+ * POST /api/ai/parse-task
+ * Body: { text: string }
+ */
+export async function parseTaskFromNaturalLanguage(req, res) {
+  try {
+    const { text } = req.body;
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'text is required and must be a non-empty string' });
+    }
+    if (text.trim().length > 500) {
+      return res.status(400).json({ error: 'text must be 500 characters or fewer' });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let parsed;
+    try {
+      parsed = await AI.parseNaturalLanguageTask(text.trim(), todayStr);
+    } catch (aiError) {
+      return res.status(503).json({ error: aiError.message || 'Failed to parse task using AI' });
+    }
+
+    return res.status(200).json(parsed);
+  } catch (error) {
+    console.error('Error parsing natural language task:', error);
+    return res.status(500).json({ error: 'Failed to parse task' });
+  }
+}
+
 export default {
   generateBreakdownFromText,
   estimateTaskTime,
+  parseTaskFromNaturalLanguage,
 };
